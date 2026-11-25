@@ -1,0 +1,45 @@
+# GoReleaser configuration: builds beagle for Linux and macOS and publishes
+# the archives to GitHub Releases when a v* tag is pushed.
+# Test locally with: goreleaser release --snapshot --clean
+version: 2
+
+project_name: beagle
+
+builds:
+  - id: beagle
+    main: ./cmd/beagle
+    binary: beagle
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: beagle
+    formats: [tar.gz]
+    # No version in the file name, so install.sh can use the stable
+    # .../releases/latest/download/<name> URL.
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

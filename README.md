@@ -40,7 +40,27 @@ legacy cosign tags.
 
 ## Install
 
-Requires Go 1.26 or newer.
+On Linux and macOS (amd64 and arm64):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/reichertan/beagle-cli/main/install.sh | sh
+```
+
+The script downloads the latest release for your platform, verifies its
+SHA-256 checksum and installs `beagle` to `/usr/local/bin` (if writable) or
+`~/.local/bin`. Options:
+
+```sh
+curl -fsSL .../install.sh | sh -s -- v0.1.0                 # specific version
+curl -fsSL .../install.sh | sudo sh                          # system-wide
+curl -fsSL .../install.sh | BEAGLE_INSTALL_DIR=~/bin sh      # custom directory
+```
+
+Prefer to read the script first? Download it, inspect it, then run `sh install.sh`.
+Archives and checksums are also available on the
+[releases page](https://github.com/reichertan/beagle-cli/releases).
+
+With Go 1.26 or newer you can also build from source:
 
 ```sh
 go install github.com/reichertan/beagle-cli/cmd/beagle@latest

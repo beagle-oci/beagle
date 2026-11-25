@@ -48,6 +48,7 @@ listens there and answers with `403 Forbidden`.
 ## Layout
 
 ```
+.github/workflows/   ci (vet, fmt, test) and release (GoReleaser on v* tags)
 cmd/beagle/          CLI entry point: flag parsing, target parsing, ping, start TUI
 internal/harbor/     Harbor v2.0 API client (detection, projects, repositories), stdlib only
 internal/oci/        registry access (wraps oras-go v2), no UI code
@@ -64,6 +65,8 @@ internal/ui/         Bubble Tea UI
   projects.go repos.go tags.go manifest.go referrers.go raw.go   the screens
   layout.go help.go styles.go keys.go
 hack/seed/           dev tool that pushes demo content to a registry
+install.sh           curl | sh installer for GitHub release binaries
+.goreleaser.yaml     release build configuration
 ```
 
 ## Architecture notes
@@ -109,6 +112,21 @@ hack/seed/           dev tool that pushes demo content to a registry
   Set `BEAGLE_SNAPSHOT_DIR=/some/dir` to dump colored screens (`*.ansi`).
 - For manual end-to-end checks use `make registry` + `make seed` (or
   `registry-noreferrers` on :5051) and run beagle against them.
+
+## Releasing
+
+- Releases are built by GoReleaser (`.goreleaser.yaml`) in the `release`
+  GitHub workflow when a `v*` tag is pushed:
+  `git tag v0.1.0 && git push origin v0.1.0`.
+- Archives are named `beagle_<os>_<arch>.tar.gz` **without a version** so
+  `install.sh` can use `.../releases/latest/download/<archive>`. Do not change
+  the name template without updating `install.sh`.
+- `install.sh` must stay POSIX `sh` (no bashisms), verify checksums and keep all
+  logic inside `main` so a partially downloaded script does nothing.
+  Check it with `shellcheck -s sh install.sh`.
+- Test the release config locally: `goreleaser check` and
+  `goreleaser release --snapshot --clean` (output in `dist/`).
+- The `ci` workflow runs vet, gofmt and tests on pushes to `main` and on PRs.
 
 ## Code style
 
