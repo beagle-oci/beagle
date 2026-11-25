@@ -156,3 +156,7 @@ See [CLAUDE.md](CLAUDE.md) for architecture notes and conventions.
 - Harbor extras: show Harbor's own accessories and scan overview, labels
 - Delete / copy / tag operations behind a read-write mode
 - Layer file browser
+
+## License
+
+beagle is licensed under the [Apache License 2.0](LICENSE).
