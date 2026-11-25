@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "registry",
+      "detail": "In-memory OCI registry with referrers API on :5000",
+      "type": "shell",
+      "command": "make registry",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "seed",
+      "detail": "Push demo content to localhost:5000",
+      "type": "shell",
+      "command": "make seed",
+      "problemMatcher": []
+    },
+    {
+      "label": "test",
+      "type": "shell",
+      "command": "make test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": ["$go"]
+    }
+  ]
+}

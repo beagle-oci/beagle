@@ -1,0 +1,17 @@
+# Build output
+/bin/
+/dist/
+/beagle
+
+# Test and coverage artifacts
+*.test
+*.out
+coverage.*
+
+# Editor and OS files
+.idea/
+.DS_Store
+
+# Local Claude Code settings and files downloaded from Claude
+.claude/settings.local.json
+/Claude outputs/

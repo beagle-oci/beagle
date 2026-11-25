@@ -1,0 +1,7 @@
+{
+  "go.testFlags": ["-count=1"],
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": { "source.organizeImports": "explicit" }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "beagle localhost:5000",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/beagle",
+      "args": ["localhost:5000/demo/app"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "beagle (ask for target)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/beagle",
+      "args": ["${input:target}"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "seed localhost:5000",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/hack/seed",
+      "args": ["localhost:5000"]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "target",
+      "type": "promptString",
+      "description": "Registry, optionally with repository and tag",
+      "default": "localhost:5000"
+    }
+  ]
+}
