@@ -15,8 +15,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/reichertan/beagle-cli/internal/harbor"
-	"github.com/reichertan/beagle-cli/internal/oci"
+	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/oci"
 )
 
 // Options configure the app.

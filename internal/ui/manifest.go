@@ -12,7 +12,7 @@ import (
 	"github.com/muesli/termenv"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
-	"github.com/reichertan/beagle-cli/internal/oci"
+	"github.com/beagle-oci/beagle/internal/oci"
 )
 
 // entry is a row in the manifest view: an index entry, the config or a layer.

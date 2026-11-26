@@ -9,8 +9,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/opencontainers/go-digest"
 
-	"github.com/reichertan/beagle-cli/internal/harbor"
-	"github.com/reichertan/beagle-cli/internal/oci"
+	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/oci"
 )
 
 // requestTimeout bounds every registry call issued by a view.

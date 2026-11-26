@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/reichertan/beagle-cli/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/harbor"
 )
 
 // projectsView lists Harbor projects. It is the root view on Harbor.

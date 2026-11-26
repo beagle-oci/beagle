@@ -11,8 +11,8 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry/remote/auth"
 
-	"github.com/reichertan/beagle-cli/internal/oci"
-	"github.com/reichertan/beagle-cli/internal/oci/ocitest"
+	"github.com/beagle-oci/beagle/internal/oci"
+	"github.com/beagle-oci/beagle/internal/oci/ocitest"
 )
 
 func newClient(t *testing.T, r *ocitest.Registry) *oci.Client {

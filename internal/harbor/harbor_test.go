@@ -8,8 +8,8 @@ import (
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
-	"github.com/reichertan/beagle-cli/internal/harbor"
-	"github.com/reichertan/beagle-cli/internal/oci/ocitest"
+	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/oci/ocitest"
 )
 
 func newHarbor(t *testing.T) (*ocitest.Registry, string) {

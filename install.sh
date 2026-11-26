@@ -1,8 +1,8 @@
 #!/bin/sh
 # Install beagle from GitHub Releases.
 #
-#   curl -fsSL https://raw.githubusercontent.com/reichertan/beagle-cli/main/install.sh | sh
-#   curl -fsSL https://raw.githubusercontent.com/reichertan/beagle-cli/main/install.sh | sh -s -- v0.1.0
+#   curl -fsSL https://raw.githubusercontent.com/beagle-oci/beagle/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/beagle-oci/beagle/main/install.sh | sh -s -- v0.1.0
 #
 # Environment variables:
 #   BEAGLE_VERSION      release tag to install (default: latest)
@@ -16,7 +16,7 @@
 
 set -eu
 
-REPO="reichertan/beagle-cli"
+REPO="beagle-oci/beagle"
 BINARY="beagle"
 
 log() { printf '%s\n' "$*" >&2; }

@@ -3,7 +3,7 @@ package ui
 import (
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/reichertan/beagle-cli/internal/oci"
+	"github.com/beagle-oci/beagle/internal/oci"
 )
 
 // Palette, loosely following k9s' default skin.

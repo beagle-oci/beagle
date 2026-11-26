@@ -9,8 +9,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/reichertan/beagle-cli/internal/harbor"
-	"github.com/reichertan/beagle-cli/internal/oci"
+	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/oci"
 )
 
 // maxRepositories caps the catalog listing.

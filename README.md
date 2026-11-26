@@ -43,7 +43,7 @@ legacy cosign tags.
 On Linux and macOS (amd64 and arm64):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/reichertan/beagle-cli/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/beagle-oci/beagle/main/install.sh | sh
 ```
 
 The script downloads the latest release for your platform, verifies its
@@ -58,12 +58,12 @@ curl -fsSL .../install.sh | BEAGLE_INSTALL_DIR=~/bin sh      # custom directory
 
 Prefer to read the script first? Download it, inspect it, then run `sh install.sh`.
 Archives and checksums are also available on the
-[releases page](https://github.com/reichertan/beagle-cli/releases).
+[releases page](https://github.com/beagle-oci/beagle/releases).
 
 With Go 1.26 or newer you can also build from source:
 
 ```sh
-go install github.com/reichertan/beagle-cli/cmd/beagle@latest
+go install github.com/beagle-oci/beagle/cmd/beagle@latest
 ```
 
 Or from a checkout: `make build` puts the binary into `bin/beagle`.

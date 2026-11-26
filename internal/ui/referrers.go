@@ -9,7 +9,7 @@ import (
 	"github.com/muesli/termenv"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
-	"github.com/reichertan/beagle-cli/internal/oci"
+	"github.com/beagle-oci/beagle/internal/oci"
 )
 
 type referrersView struct {

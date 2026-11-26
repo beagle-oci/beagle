@@ -1,4 +1,4 @@
-module github.com/reichertan/beagle-cli
+module github.com/beagle-oci/beagle
 
 go 1.26.0
 

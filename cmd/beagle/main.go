@@ -12,9 +12,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/reichertan/beagle-cli/internal/harbor"
-	"github.com/reichertan/beagle-cli/internal/oci"
-	"github.com/reichertan/beagle-cli/internal/ui"
+	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/oci"
+	"github.com/beagle-oci/beagle/internal/ui"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
