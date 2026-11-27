@@ -1,5 +1,12 @@
 # beagle
 
+[![CI](https://github.com/beagle-oci/beagle/actions/workflows/ci.yml/badge.svg)](https://github.com/beagle-oci/beagle/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/beagle-oci/beagle)](https://github.com/beagle-oci/beagle/releases/latest)
+[![Go Reference](https://pkg.go.dev/badge/github.com/beagle-oci/beagle.svg)](https://pkg.go.dev/github.com/beagle-oci/beagle)
+[![Go Report Card](https://goreportcard.com/badge/github.com/beagle-oci/beagle)](https://goreportcard.com/report/github.com/beagle-oci/beagle)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/beagle-oci/beagle)](go.mod)
+[![License](https://img.shields.io/github/license/beagle-oci/beagle)](LICENSE)
+
 **beagle** is a terminal UI for OCI registries, in the spirit of
 [k9s](https://k9scli.io). It lets you browse repositories, tags and
 manifests and, above all, see everything that is attached to an image:
