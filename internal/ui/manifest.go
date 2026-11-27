@@ -14,6 +14,15 @@ import (
 	"github.com/beagle-oci/beagle/internal/oci"
 )
 
+// kindLabel names a kind in a table cell; unknown kinds stay blank because the
+// media type next to it says more.
+func kindLabel(k oci.Kind) string {
+	if k == oci.KindUnknown {
+		return ""
+	}
+	return k.String()
+}
+
 // entry is a row in the manifest view: an index entry, the config or a layer.
 type entry struct {
 	role string // platform, "config" or "layer N"
@@ -46,7 +55,7 @@ func newManifestView(repo, reference string, desc *ocispec.Descriptor) *manifest
 	v.list = newList(
 		[]column{{title: "NAME", max: 24}, {title: "KIND", max: 12}, {title: "DIGEST", max: 19}, {title: "MEDIA TYPE", flex: 3}, {title: "SIZE", max: 10, right: true}, {title: "TITLE", flex: 1}},
 		func(e entry) []string {
-			return []string{e.role, e.kind.String(), shortDigest(e.desc.Digest), e.desc.MediaType, humanSize(e.desc.Size), e.desc.Annotations[ocispec.AnnotationTitle]}
+			return []string{e.role, kindLabel(e.kind), shortDigest(e.desc.Digest), e.desc.MediaType, humanSize(e.desc.Size), e.desc.Annotations[ocispec.AnnotationTitle]}
 		},
 		func(e entry) lipgloss.Style { return kindStyle(e.kind) },
 	)

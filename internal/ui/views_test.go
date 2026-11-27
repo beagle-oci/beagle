@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
+	"github.com/beagle-oci/beagle/internal/oci"
 	"github.com/beagle-oci/beagle/internal/oci/ocitest"
 )
 
@@ -24,6 +25,15 @@ func (h *harness) filter(text string) {
 	h.key("/")
 	h.typeText(text)
 	h.key("enter")
+}
+
+func TestKindLabel(t *testing.T) {
+	if got := kindLabel(oci.KindUnknown); got != "" {
+		t.Errorf("unknown kind label = %q, want blank", got)
+	}
+	if got := kindLabel(oci.KindLayer); got != "layer" {
+		t.Errorf("layer kind label = %q", got)
+	}
 }
 
 func TestReferrerActions(t *testing.T) {
@@ -45,7 +55,10 @@ func TestReferrerActions(t *testing.T) {
 	}
 
 	h.key("enter")
-	h.expect("signature", "manifest(demo/app@"+f.Signature.Digest.String(), "Subject:", "press s", "Artifact type:")
+	s := h.expect("signature", "manifest(demo/app@"+f.Signature.Digest.String(), "Subject:", "press s", "Artifact type:")
+	if f := strings.Fields(row(t, s, ocispec.MediaTypeEmptyJSON)); f[2] != "empty" {
+		t.Fatalf("empty config row kind = %q", f[2])
+	}
 	h.key("s")
 	h.expect("subject", "manifest(demo/app@"+f.Index.Digest.String(), "linux/amd64", "linux/arm64")
 

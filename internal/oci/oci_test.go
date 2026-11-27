@@ -220,6 +220,37 @@ func TestParseSubjectTag(t *testing.T) {
 	}
 }
 
+func TestClassifyMediaType(t *testing.T) {
+	for mt, want := range map[string]oci.Kind{
+		ocispec.MediaTypeImageConfig:                                   oci.KindConfig,
+		oci.MediaTypeDockerConfig:                                      oci.KindConfig,
+		ocispec.MediaTypeEmptyJSON:                                     oci.KindEmpty,
+		ocispec.MediaTypeImageLayerGzip:                                oci.KindLayer,
+		ocispec.MediaTypeImageLayerZstd:                                oci.KindLayer,
+		ocispec.MediaTypeImageLayer:                                    oci.KindLayer,
+		"application/vnd.oci.image.layer.nondistributable.v1.tar+gzip": oci.KindLayer,
+		"application/vnd.docker.image.rootfs.diff.tar.gzip":            oci.KindLayer,
+		"application/vnd.docker.image.rootfs.foreign.diff.tar.gzip":    oci.KindLayer,
+		"application/vnd.cncf.helm.config.v1+json":                     oci.KindHelmChart,
+		"application/vnd.cncf.helm.chart.content.v1.tar+gzip":          oci.KindHelmChart,
+		"application/spdx+json":                                        oci.KindSBOM,
+		"application/vnd.dev.sigstore.bundle.v0.3+json":                oci.KindSignature,
+		"application/vnd.dev.cosign.simplesigning.v1+json":             oci.KindSignature,
+		"application/vnd.unknown.config.v1+json":                       oci.KindUnknown,
+		"application/vnd.wasm.content.layer.v1+wasm":                   oci.KindUnknown,
+		"": oci.KindUnknown,
+	} {
+		if got := oci.ClassifyMediaType(mt); got != want {
+			t.Errorf("ClassifyMediaType(%q) = %v, want %v", mt, got, want)
+		}
+	}
+	for k, want := range map[oci.Kind]string{oci.KindConfig: "config", oci.KindLayer: "layer", oci.KindEmpty: "empty"} {
+		if k.String() != want {
+			t.Errorf("Kind(%d).String() = %q, want %q", k, k.String(), want)
+		}
+	}
+}
+
 func TestClassifyDescriptor(t *testing.T) {
 	tests := []struct {
 		name string

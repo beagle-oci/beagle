@@ -25,6 +25,11 @@ const (
 	// KindReferrersIndex is the index stored under the OCI 1.1 referrers
 	// tag schema (sha256-<hex>) by registries without the referrers API.
 	KindReferrersIndex
+
+	// Blob kinds for the config and layers listed in a manifest.
+	KindConfig
+	KindLayer
+	KindEmpty
 )
 
 // Annotations used to classify content.
@@ -57,6 +62,12 @@ func (k Kind) String() string {
 		return "artifact"
 	case KindReferrersIndex:
 		return "referrers"
+	case KindConfig:
+		return "config"
+	case KindLayer:
+		return "layer"
+	case KindEmpty:
+		return "empty"
 	default:
 		return "unknown"
 	}
@@ -114,10 +125,24 @@ func ClassifyManifest(m *Manifest) Kind {
 	return KindImage
 }
 
-// ClassifyMediaType classifies a single media type (artifact type, config or
-// layer media type). It returns KindUnknown for anything not recognized.
+// ClassifyMediaType classifies the media type of a blob listed in a manifest
+// (config or layer) or an artifact type. Supply chain and Helm types win;
+// plain image configs, image layers and the OCI empty descriptor get their
+// own kinds. It returns KindUnknown for anything not recognized.
 func ClassifyMediaType(mediaType string) Kind {
-	return classifyType(mediaType, nil)
+	if k := classifyType(mediaType, nil); k != KindUnknown {
+		return k
+	}
+	switch mt := strings.ToLower(mediaType); {
+	case mt == ocispec.MediaTypeImageConfig, mt == MediaTypeDockerConfig:
+		return KindConfig
+	case mt == ocispec.MediaTypeEmptyJSON:
+		return KindEmpty
+	case strings.HasPrefix(mt, "application/vnd.oci.image.layer."),
+		strings.HasPrefix(mt, "application/vnd.docker.image.rootfs."):
+		return KindLayer
+	}
+	return KindUnknown
 }
 
 func classifyType(t string, ann map[string]string) Kind {

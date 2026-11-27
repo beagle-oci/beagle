@@ -70,7 +70,7 @@ func kindStyle(k oci.Kind) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
 	case oci.KindArtifact:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("152"))
-	case oci.KindReferrersIndex:
+	case oci.KindReferrersIndex, oci.KindEmpty:
 		return styleMuted
 	default:
 		return styleRow

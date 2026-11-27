@@ -59,7 +59,7 @@ internal/dockerhub/  Docker Hub tags API client (push/pull times), stdlib only
 internal/oci/        registry access (wraps oras-go v2), no UI code
   client.go          Client: repositories, tags, resolve, manifests, blobs, referrers
   manifest.go        Manifest parsing (OCI + Docker media types)
-  classify.go        Kind classification (signature, sbom, attestation, ...)
+  classify.go        Kind classification of manifests (signature, sbom, ...) and blobs (config, layer, empty)
   subjecttag.go      cosign legacy tags and referrers tag schema (sha256-<hex>[.sig])
   tree.go            ReferrerTree: recursive referrers + cosign tags + index platforms
   details.go         Attachments (signature formats, attached kinds) and Created (build time)
