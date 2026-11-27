@@ -1,6 +1,8 @@
 # GoReleaser configuration: builds beagle for Linux and macOS and publishes
-# the archives to GitHub Releases when a v* tag is pushed.
-# Test locally with: goreleaser release --snapshot --clean
+# the archives to GitHub Releases when a v* tag is pushed. Each archive gets an
+# SPDX SBOM (syft), and checksums.txt, which covers archives and SBOMs, is
+# signed keyless with cosign (checksums.txt.sigstore.json).
+# Test locally with: goreleaser release --snapshot --clean --skip=sign
 version: 2
 
 project_name: beagle
@@ -35,6 +37,25 @@ archives:
 checksum:
   name_template: checksums.txt
   algorithm: sha256
+
+sboms:
+  - artifacts: archive
+
+# Keyless signing with the GitHub Actions OIDC identity of the release
+# workflow. Verify with:
+#   cosign verify-blob --bundle checksums.txt.sigstore.json \
+#     --certificate-identity-regexp '^https://github.com/beagle-oci/beagle/\.github/workflows/release\.yml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+#     checksums.txt
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sigstore.json"
+    args:
+      - sign-blob
+      - "--bundle=${signature}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
 
 changelog:
   sort: asc

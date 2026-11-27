@@ -7,6 +7,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/beagle-oci/beagle)](https://goreportcard.com/report/github.com/beagle-oci/beagle)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/beagle-oci/beagle)](go.mod)
 [![License](https://img.shields.io/github/license/beagle-oci/beagle)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/beagle-oci/beagle/badge)](https://scorecard.dev/viewer/?uri=github.com/beagle-oci/beagle)
 
 **beagle** is a terminal UI for OCI registries, in the spirit of
 [k9s](https://k9scli.io). It lets you browse repositories, tags and
@@ -70,6 +71,9 @@ curl -fsSL .../install.sh | BEAGLE_INSTALL_DIR=~/bin sh      # custom directory
 ```
 
 Prefer to read the script first? Download it, inspect it, then run `sh install.sh`.
+If [cosign](https://docs.sigstore.dev/cosign/system_config/installation/) is
+installed, the script also verifies the release signature;
+`BEAGLE_REQUIRE_SIGNATURE=1` makes that mandatory.
 Archives and checksums are also available on the
 [releases page](https://github.com/beagle-oci/beagle/releases).
 
@@ -80,6 +84,29 @@ go install github.com/beagle-oci/beagle/cmd/beagle@latest
 ```
 
 Or from a checkout: `make build` puts the binary into `bin/beagle`.
+
+### Verifying releases
+
+Every release since v0.2.0 is signed and comes with SBOMs:
+
+- `checksums.txt` lists the SHA-256 of all archives and SBOMs and is signed
+  keyless with cosign by the release workflow (`checksums.txt.sigstore.json`)
+- `beagle_<os>_<arch>.tar.gz.sbom.json` is an SPDX SBOM per archive
+- SLSA build provenance is stored as a GitHub attestation
+
+```sh
+# 1. Signature of the checksums (identity = this repo's release workflow)
+cosign verify-blob --bundle checksums.txt.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/beagle-oci/beagle/\.github/workflows/release\.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+
+# 2. The archive matches the signed checksums
+sha256sum --ignore-missing -c checksums.txt
+
+# 3. Build provenance (GitHub CLI)
+gh attestation verify beagle_linux_amd64.tar.gz --repo beagle-oci/beagle
+```
 
 ## Usage
 

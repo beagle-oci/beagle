@@ -10,9 +10,13 @@
 #                       otherwise ~/.local/bin; use "| sudo sh" for a
 #                       system-wide install)
 #   BEAGLE_BASE_URL     releases base URL (default: GitHub), e.g. for mirrors
+#   BEAGLE_REQUIRE_SIGNATURE=1
+#                       fail unless the release signature can be verified
 #
 # The script downloads the archive for the current OS and architecture,
 # verifies its SHA-256 checksum against checksums.txt and installs the binary.
+# If cosign is installed, it also verifies that checksums.txt was signed by
+# the release workflow of this repository (keyless, via Sigstore).
 
 set -eu
 
@@ -61,6 +65,29 @@ detect_platform() {
 	esac
 }
 
+# verify_signature checks checksums.txt against its cosign bundle. Releases
+# before v0.2.0 are not signed; then verification is skipped unless
+# BEAGLE_REQUIRE_SIGNATURE=1.
+verify_signature() {
+	required="${BEAGLE_REQUIRE_SIGNATURE:-0}"
+	if ! has cosign; then
+		[ "$required" = "1" ] && fail "cosign is required to verify the release signature"
+		log "Note: install cosign to also verify the release signature"
+		return 0
+	fi
+	if ! download "$1/checksums.txt.sigstore.json" "$2/checksums.txt.sigstore.json" 2>/dev/null; then
+		[ "$required" = "1" ] && fail "this release has no signature (checksums.txt.sigstore.json)"
+		log "Note: this release is not signed, skipping signature verification"
+		return 0
+	fi
+	cosign verify-blob \
+		--bundle "$2/checksums.txt.sigstore.json" \
+		--certificate-identity-regexp "^https://github.com/$REPO/\\.github/workflows/release\\.yml@refs/tags/v" \
+		--certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+		"$2/checksums.txt" >/dev/null 2>&1 || fail "signature verification of checksums.txt failed"
+	log "Verified the release signature (cosign)"
+}
+
 choose_install_dir() {
 	if [ -n "${BEAGLE_INSTALL_DIR:-}" ]; then
 		dir="$BEAGLE_INSTALL_DIR"
@@ -96,6 +123,8 @@ main() {
 	log "Downloading $archive ($version)"
 	download "$url/$archive" "$tmp/$archive" || fail "download failed: $url/$archive"
 	download "$url/checksums.txt" "$tmp/checksums.txt" || fail "download failed: $url/checksums.txt"
+
+	verify_signature "$url" "$tmp"
 
 	expected=$(awk -v f="$archive" '$2 == f { print $1 }' "$tmp/checksums.txt")
 	[ -n "$expected" ] || fail "no checksum for $archive in checksums.txt"
