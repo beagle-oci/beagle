@@ -49,7 +49,9 @@ listens there and answers with `403 Forbidden`.
 ## Layout
 
 ```
-.github/workflows/   ci (vet, fmt, test) and release (GoReleaser on v* tags)
+.github/workflows/   ci (vet, fmt, test, coverage badge), release (GoReleaser, signing,
+                     provenance on v* tags), scorecard (OpenSSF Scorecard)
+.github/dependabot.yml  weekly updates for pinned actions and Go modules
 cmd/beagle/          CLI entry point: flag parsing, target parsing, ping, start TUI
 internal/meta/       vendor tag metadata types + Provider interface (push/pull, scans)
 internal/harbor/     Harbor v2.0 API client (detection, projects, repositories, artifacts), stdlib only
@@ -153,6 +155,18 @@ install.sh           curl | sh installer for GitHub release binaries
 - Test the release config locally: `goreleaser check` and
   `goreleaser release --snapshot --clean` (output in `dist/`).
 - The `ci` workflow runs vet, gofmt and tests on pushes to `main` and on PRs.
+- Releases are signed: GoReleaser creates an SPDX SBOM per archive (syft) and
+  signs `checksums.txt` keyless with cosign (`checksums.txt.sigstore.json`);
+  `actions/attest-build-provenance` adds SLSA provenance. `install.sh`
+  verifies the signature when cosign is installed. The cosign identity is the
+  release workflow path; renaming `release.yml` or the repo breaks
+  verification in `install.sh` and the README.
+- All GitHub Actions are pinned to commit SHAs with a `# vX.Y.Z` comment
+  (OpenSSF Scorecard "Pinned-Dependencies"); Dependabot updates them. Keep
+  top-level workflow permissions read-only and grant writes per job.
+- `scorecard.yml` follows the official example: no `run` steps, env vars or
+  extra actions in its job, or api.scorecard.dev rejects the results.
+- Security reports go through GitHub Security Advisories (`SECURITY.md`).
 
 ## Code style
 
