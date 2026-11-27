@@ -224,26 +224,22 @@ func TestFormatHelpers(t *testing.T) {
 			t.Errorf("shortMediaType(%q) = %q, want %q", mt, got, want)
 		}
 	}
-	now := time.Now()
-	for d, want := range map[time.Duration]string{
-		30 * time.Second:     "30s",
-		5 * time.Minute:      "5m",
-		3 * time.Hour:        "3h",
-		10 * 24 * time.Hour:  "10d",
-		800 * 24 * time.Hour: "2y",
-	} {
-		if got := ageTime(now.Add(-d), "-"); got != want {
-			t.Errorf("ageTime(-%v) = %q, want %q", d, got, want)
-		}
+	at := time.Date(2026, 11, 27, 14, 2, 31, 0, time.Local)
+	if got := timestamp(at, "-"); got != "2026-11-27 14:02:31" {
+		t.Errorf("timestamp = %q", got)
 	}
-	if got := ageTime(time.Time{}, "never"); got != "never" {
+	if got := timestamp(time.Time{}, "never"); got != "never" {
 		t.Errorf("zero time = %q", got)
 	}
-	if got := age("not a time"); got != "not a time" {
+	utc := time.Date(2026, 11, 27, 13, 2, 31, 500, time.UTC)
+	if got, want := annotationTime("2026-11-27T13:02:31.0000005Z"), utc.Local().Format(timeLayout); got != want {
+		t.Errorf("annotationTime = %q, want %q", got, want)
+	}
+	if got := annotationTime("not a time"); got != "not a time" {
 		t.Errorf("invalid time = %q", got)
 	}
-	if got := age(now.Add(48 * time.Hour).Format(time.RFC3339)); !strings.HasPrefix(got, "20") {
-		t.Errorf("future time = %q", got)
+	if got := annotationTime(""); got != "" {
+		t.Errorf("missing time = %q", got)
 	}
 	if !isTextual("application/spdx+json") || isTextual("application/vnd.oci.image.layer.v1.tar+gzip") || isTextual("application/octet-stream") {
 		t.Error("isTextual misclassifies media types")

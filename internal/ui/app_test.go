@@ -355,7 +355,7 @@ func TestTagColumnsGeneric(t *testing.T) {
 		t.Fatalf("generic registry should not show vendor columns:\n%s", s)
 	}
 	v1 := row(t, s, "v1.0.0")
-	for _, want := range []string{"✓ cosign", "sbom att", "d"} {
+	for _, want := range []string{"✓ cosign", "sbom att", timestamp(ocitest.Created, "-")} {
 		if !strings.Contains(v1, want) {
 			t.Fatalf("row %q lacks %q", v1, want)
 		}
@@ -364,11 +364,13 @@ func TestTagColumnsGeneric(t *testing.T) {
 
 func TestTagColumnsHarbor(t *testing.T) {
 	r := newHarborRegistry()
+	latestPushed := time.Now().Add(-72 * time.Hour)
+	v1Pushed, v1Pulled := time.Now().Add(-2*time.Hour), time.Now().Add(-30*time.Minute)
 	r.Harbor.PushTimes = map[string]time.Time{
-		"demo/app:latest": time.Now().Add(-72 * time.Hour),
-		"demo/app:v1.0.0": time.Now().Add(-2 * time.Hour),
+		"demo/app:latest": latestPushed,
+		"demo/app:v1.0.0": v1Pushed,
 	}
-	r.Harbor.PullTimes = map[string]time.Time{"demo/app:v1.0.0": time.Now().Add(-30 * time.Minute)}
+	r.Harbor.PullTimes = map[string]time.Time{"demo/app:v1.0.0": v1Pulled}
 	r.Harbor.Vulns = map[string]map[string]int{"demo/app": {"Critical": 1, "High": 2}}
 	h := newHarness(t, r, Options{Repository: "demo/app"})
 
@@ -377,12 +379,12 @@ func TestTagColumnsHarbor(t *testing.T) {
 		t.Fatalf("Harbor shows push times instead of build times:\n%s", s)
 	}
 	v1 := row(t, s, "v1.0.0")
-	for _, want := range []string{"✓ cosign", "2h", "30m", "C1 H2"} {
+	for _, want := range []string{"✓ cosign", timestamp(v1Pushed, "-"), timestamp(v1Pulled, "-"), "C1 H2"} {
 		if !strings.Contains(v1, want) {
 			t.Fatalf("row %q lacks %q", v1, want)
 		}
 	}
-	if latest := row(t, s, "latest"); !strings.Contains(latest, "never") || !strings.Contains(latest, "3d") {
+	if latest := row(t, s, "latest"); !strings.Contains(latest, "never") || !strings.Contains(latest, timestamp(latestPushed, "-")) {
 		t.Fatalf("latest row = %q", latest)
 	}
 
@@ -397,7 +399,8 @@ func TestTagColumnsHarbor(t *testing.T) {
 func TestTagColumnsDockerHub(t *testing.T) {
 	r := ocitest.New()
 	ocitest.Seed(r)
-	hub := &ocitest.Hub{Registry: r, PullTimes: map[string]time.Time{"demo/app:v1.0.0": time.Now().Add(-3 * time.Hour)}}
+	pulled := time.Now().Add(-3 * time.Hour)
+	hub := &ocitest.Hub{Registry: r, PullTimes: map[string]time.Time{"demo/app:v1.0.0": pulled}}
 	hc := dockerhub.New(nil)
 	hc.BaseURL = hub.Start(t)
 
@@ -406,7 +409,7 @@ func TestTagColumnsDockerHub(t *testing.T) {
 	if strings.Contains(s, "VULNS") {
 		t.Fatalf("Docker Hub provides no scan results:\n%s", s)
 	}
-	if v1 := row(t, s, "v1.0.0"); !strings.Contains(v1, "3h") {
+	if v1 := row(t, s, "v1.0.0"); !strings.Contains(v1, timestamp(pulled, "-")) {
 		t.Fatalf("row %q lacks the pull time", v1)
 	}
 }

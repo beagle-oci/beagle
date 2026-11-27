@@ -17,19 +17,19 @@ they are stored as OCI 1.1 referrers, through the referrers tag fallback or as
 legacy cosign tags.
 
 ```
-┌──────────────────────── referrers(demo/app:v1.0.0)[11] ─────────────────────────┐
-│ ARTIFACT                                          KIND         SOURCE       AGE │
-│ v1.0.0                                            index                         │
-│ ├─ application/vnd.dev.sigstore.bundle.v0.3+json  signature    referrer      2m │
-│ ├─ application/vnd.dev.sigstore.bundle.v0.3+json  attestation  referrer      2m │
-│ ├─ application/spdx+json                          sbom         referrer      2m │
-│ │  └─ application/vnd.dev.sigstore.bundle.v0.3+…  signature    referrer      2m │
-│ ├─ sha256-7b22f48e1be7….sig                       signature    cosign tag       │
-│ ├─ linux/amd64                                    image        platform      2m │
-│ │  └─ application/vnd.cncf.notary.signature       signature    referrer      2m │
-│ └─ linux/arm64                                    image        platform      2m │
-│    └─ application/sarif+json                      vuln-report  referrer      2m │
-└─────────────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────── referrers(demo/app:v1.0.0)[11] ───────────────────────────────┐
+│ ARTIFACT                                       KIND         SOURCE      CREATED             │
+│ v1.0.0                                         index                                        │
+│ ├─ application/vnd.dev.sigstore.bundle.v0.3+…  signature    referrer    2026-11-27 14:02:31 │
+│ ├─ application/vnd.dev.sigstore.bundle.v0.3+…  attestation  referrer    2026-11-27 14:02:31 │
+│ ├─ application/spdx+json                       sbom         referrer    2026-11-27 14:02:31 │
+│ │  └─ application/vnd.dev.sigstore.bundle.v0…  signature    referrer    2026-11-27 14:02:31 │
+│ ├─ sha256-7b22f48e1be7….sig                    signature    cosign tag                      │
+│ ├─ linux/amd64                                 image        platform    2026-11-27 14:02:31 │
+│ │  └─ application/vnd.cncf.notary.signature    signature    referrer    2026-11-27 14:02:31 │
+│ └─ linux/arm64                                 image        platform    2026-11-27 14:02:31 │
+│    └─ application/sarif+json                   vuln-report  referrer    2026-11-27 14:02:31 │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Features
@@ -140,6 +140,7 @@ case start beagle with a repository or use `:repo <name>`.
 | `VULNS`    | Harbor scan overview, e.g. `C1 H3` (critical/high/...)        | Harbor     |
 
 `SIGNED` means a signature is attached; it is not verified yet.
+Times are shown in local time, to the second (`2026-11-27 14:02:31`).
 
 ### Harbor
 

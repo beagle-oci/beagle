@@ -53,9 +53,9 @@ func newProjectReposView(project string) *reposView {
 	return &reposView{
 		project: project,
 		list: newList(
-			[]column{{title: "NAME", flex: 1}, {title: "ARTIFACTS", max: 9, right: true}, {title: "PULLS", max: 9, right: true}, {title: "UPDATED", max: 7, right: true}},
+			[]column{{title: "NAME", flex: 1}, {title: "ARTIFACTS", max: 9, right: true}, {title: "PULLS", max: 9, right: true}, {title: "UPDATED", max: 19}},
 			func(r repoItem) []string {
-				return []string{r.name, fmt.Sprint(r.artifacts), fmt.Sprint(r.pulls), age(r.updated.Format(time.RFC3339))}
+				return []string{r.name, fmt.Sprint(r.artifacts), fmt.Sprint(r.pulls), timestamp(r.updated, "-")}
 			}, nil),
 	}
 }

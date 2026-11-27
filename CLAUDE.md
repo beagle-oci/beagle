@@ -113,6 +113,8 @@ install.sh           curl | sh installer for GitHub release binaries
   around the visible window; the app calls it after every update (`lazyLoader`).
   Keep per-tag work cheap (manifest, one referrers call, at most config fetch).
 - Cells can be styled individually (`list.cell`), e.g. green SIGNED, red VULNS.
+- Points in time render as absolute local timestamps (`timestamp`,
+  `annotationTime` in `view.go`, layout `2006-01-02 15:04:05`), not as ages.
 - Rows are colored by `oci.Kind` (`kindStyle` in `styles.go`), the way k9s
   colors rows by status.
 

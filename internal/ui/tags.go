@@ -251,19 +251,19 @@ func (v *tagsView) setColumns(caps meta.Capabilities) {
 		}},
 	}
 	if caps.Pushed {
-		cols = append(cols, tagColumn{column: column{title: "PUSHED", max: 7, right: true}, value: func(t *tagItem) string {
+		cols = append(cols, tagColumn{column: column{title: "PUSHED", max: 19}, value: func(t *tagItem) string {
 			if t.meta == nil {
 				return ""
 			}
-			return ageTime(t.meta.Pushed, "-")
+			return timestamp(t.meta.Pushed, "-")
 		}})
 	}
 	if caps.Pulled {
-		cols = append(cols, tagColumn{column: column{title: "PULLED", max: 7, right: true}, value: func(t *tagItem) string {
+		cols = append(cols, tagColumn{column: column{title: "PULLED", max: 19}, value: func(t *tagItem) string {
 			if t.meta == nil {
 				return ""
 			}
-			return ageTime(t.meta.Pulled, "never")
+			return timestamp(t.meta.Pulled, "never")
 		}})
 	}
 	if caps.Vulns {
@@ -292,14 +292,14 @@ func (v *tagsView) setColumns(caps meta.Capabilities) {
 		})
 	}
 	if !caps.Pushed {
-		cols = append(cols, tagColumn{column: column{title: "CREATED", max: 7, right: true}, value: func(t *tagItem) string {
+		cols = append(cols, tagColumn{column: column{title: "CREATED", max: 19}, value: func(t *tagItem) string {
 			switch {
 			case t.subject != nil:
 				return ""
 			case loading(t):
 				return "…"
 			}
-			return ageTime(t.created, "-")
+			return timestamp(t.created, "-")
 		}})
 	}
 	cols = append(cols, tagColumn{column: column{title: "INFO", flex: 3}, value: func(t *tagItem) string {

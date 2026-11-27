@@ -163,33 +163,23 @@ func shortMediaType(mt string) string {
 	return mt
 }
 
-// ageTime renders t relative to now; zero times render as unknown.
-func ageTime(t time.Time, unknown string) string {
+// timeLayout is how beagle renders points in time: local time, to the second.
+const timeLayout = "2006-01-02 15:04:05"
+
+// timestamp renders t in local time; zero times render as unknown.
+func timestamp(t time.Time, unknown string) string {
 	if t.IsZero() {
 		return unknown
 	}
-	return age(t.Format(time.RFC3339))
+	return t.Local().Format(timeLayout)
 }
 
-// age renders an RFC 3339 timestamp relative to now, k9s style.
-func age(ts string) string {
+// annotationTime renders an RFC 3339 annotation value like timestamp and
+// returns anything else unchanged.
+func annotationTime(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
 		return ts
 	}
-	d := time.Since(t)
-	switch {
-	case d < 0:
-		return t.Format("2006-01-02")
-	case d < time.Minute:
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	case d < time.Hour:
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	case d < 48*time.Hour:
-		return fmt.Sprintf("%dh", int(d.Hours()))
-	case d < 365*24*time.Hour:
-		return fmt.Sprintf("%dd", int(d.Hours()/24))
-	default:
-		return fmt.Sprintf("%dy", int(d.Hours()/24/365))
-	}
+	return timestamp(t, "")
 }
