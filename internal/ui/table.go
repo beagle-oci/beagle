@@ -35,6 +35,9 @@ type table struct {
 	offset int
 	width  int
 	height int // including the header line
+	// xoff is the first scrollable column shown while the columns do not fit
+	// the width. Column 0 always stays visible.
+	xoff int
 }
 
 func (t *table) setSize(w, h int) {
@@ -83,14 +86,43 @@ func (t *table) update(msg tea.KeyMsg) bool {
 	case key.Matches(msg, keys.Bottom):
 		t.cursor = len(t.rows) - 1
 		t.clamp()
+	case key.Matches(msg, keys.Left):
+		t.scrollX(-1)
+	case key.Matches(msg, keys.Right):
+		t.scrollX(1)
 	default:
 		return false
 	}
 	return true
 }
 
-// widths computes column widths from the content and the available width.
-func (t *table) widths() []int {
+// scrollX shifts the scrollable columns by delta while they do not fit.
+func (t *table) scrollX(delta int) {
+	l := t.layout()
+	if !l.scroll {
+		return
+	}
+	t.xoff = min(max(l.cols[1]+delta, 1), l.maxOff)
+}
+
+// colLayout is the result of table.layout.
+type colLayout struct {
+	// cols are the visible column indexes, widths their widths.
+	cols, widths []int
+	// scroll reports that the columns do not fit and scroll horizontally;
+	// maxOff is then the largest useful scroll offset.
+	scroll bool
+	maxOff int
+}
+
+// hiddenLeft and hiddenRight report columns scrolled out of view.
+func (l colLayout) hiddenLeft() bool { return l.scroll && len(l.cols) > 1 && l.cols[1] > 1 }
+func (l colLayout) hiddenRight(n int) bool {
+	return len(l.cols) > 0 && l.cols[len(l.cols)-1] < n-1
+}
+
+// naturalWidths returns the width of the widest title or cell per column.
+func (t *table) naturalWidths() []int {
 	natural := make([]int, len(t.cols))
 	for i, c := range t.cols {
 		natural[i] = ansi.StringWidth(c.title)
@@ -102,49 +134,127 @@ func (t *table) widths() []int {
 			}
 		}
 	}
+	return natural
+}
 
-	avail := t.width - 2 - cellGap*(len(t.cols)-1)
-	out := make([]int, len(t.cols))
+// layout picks the visible columns and their widths. When all columns fit,
+// flex columns share the space left over by the fixed ones. Otherwise column
+// 0 stays in place and the other columns scroll horizontally, k9s style,
+// starting at xoff.
+func (t *table) layout() colLayout {
+	n := len(t.cols)
+	natural := t.naturalWidths()
+	minW := make([]int, n)
+	need := cellGap * max(n-1, 0)
+	for i, c := range t.cols {
+		switch {
+		case c.flex > 0:
+			minW[i] = min(natural[i], 8)
+		case c.max > 0:
+			minW[i] = min(natural[i], c.max)
+		default:
+			minW[i] = natural[i]
+		}
+		need += minW[i]
+	}
+	avail := t.width - 2
+	if need <= avail || n < 2 {
+		return t.fitLayout(natural, minW, avail)
+	}
+
+	first := minW[0]
+	if t.cols[0].flex > 0 {
+		first = min(natural[0], max(minW[0], avail/3))
+	}
+	first = max(min(first, avail-cellGap-1), 1)
+	rest := avail - first
+
+	// The largest offset is the one that brings the last column into view.
+	maxOff, used := n-1, cellGap+minW[n-1]
+	for i := n - 2; i >= 1; i-- {
+		used += cellGap + minW[i]
+		if used > rest {
+			break
+		}
+		maxOff = i
+	}
+
+	l := colLayout{cols: []int{0}, widths: []int{first}, scroll: true, maxOff: maxOff}
+	used = 0
+	for i := min(max(t.xoff, 1), maxOff); i < n; i++ {
+		w := minW[i]
+		if used+cellGap+w > rest {
+			if len(l.cols) > 1 {
+				break
+			}
+			w = max(rest-cellGap, 1) // too wide even on its own
+		}
+		l.cols = append(l.cols, i)
+		l.widths = append(l.widths, w)
+		used += cellGap + w
+	}
+
+	// Flex columns, including column 0, grow into what is left.
+	left := rest - used
+	for j := len(l.cols) - 1; j >= 0 && left > 0; j-- {
+		if i := l.cols[j]; t.cols[i].flex > 0 && natural[i] > l.widths[j] {
+			grow := min(natural[i]-l.widths[j], left)
+			l.widths[j] += grow
+			left -= grow
+		}
+	}
+	return l
+}
+
+// fitLayout lays out all columns when they fit the available width.
+func (t *table) fitLayout(natural, minW []int, avail int) colLayout {
+	l := colLayout{cols: make([]int, len(t.cols)), widths: make([]int, len(t.cols))}
+	avail -= cellGap * max(len(t.cols)-1, 0)
 	used, flexTotal := 0, 0
 	for i, c := range t.cols {
+		l.cols[i] = i
 		if c.flex > 0 {
 			flexTotal += c.flex
 			continue
 		}
-		w := natural[i]
-		if c.max > 0 {
-			w = min(w, c.max)
-		}
-		out[i] = w
-		used += w
+		l.widths[i] = minW[i]
+		used += minW[i]
 	}
 	rest := max(avail-used, 0)
 	for i, c := range t.cols {
 		if c.flex > 0 {
-			out[i] = max(rest*c.flex/flexTotal, min(natural[i], 8))
+			l.widths[i] = max(rest*c.flex/flexTotal, minW[i])
 		}
 	}
-	return out
+	return l
 }
 
 func (t *table) view() string {
 	if t.width <= 0 || t.height <= 0 {
 		return ""
 	}
-	widths := t.widths()
+	l := t.layout()
 	var b strings.Builder
 
 	titles := make([]string, len(t.cols))
 	for i, c := range t.cols {
 		titles[i] = c.title
 	}
-	b.WriteString(styleTableHeader.Render(t.renderRow(titles, widths)))
+	header := t.renderRow(titles, l)
+	// Arrows mark columns scrolled out of view.
+	if l.hiddenLeft() {
+		header = overlay(header, 1+l.widths[0], "◀")
+	}
+	if l.hiddenRight(len(t.cols)) {
+		header = overlay(header, t.width-1, "▶")
+	}
+	b.WriteString(styleTableHeader.Render(header))
 
 	end := min(t.offset+t.bodyHeight(), len(t.rows))
 	for i := t.offset; i < end; i++ {
 		b.WriteByte('\n')
 		if i == t.cursor {
-			b.WriteString(styleSelected.Render(t.renderRow(t.rows[i], widths)))
+			b.WriteString(styleSelected.Render(t.renderRow(t.rows[i], l)))
 			continue
 		}
 		rowStyle := styleRow
@@ -155,22 +265,31 @@ func (t *table) view() string {
 		if i < len(t.cellStyles) {
 			cells = t.cellStyles[i]
 		}
-		b.WriteString(t.renderStyledRow(t.rows[i], widths, rowStyle, cells))
+		b.WriteString(t.renderStyledRow(t.rows[i], l, rowStyle, cells))
 	}
 	return b.String()
 }
 
+// overlay replaces the cell at column x of a plain line with s.
+func overlay(line string, x int, s string) string {
+	if x < 0 || x >= ansi.StringWidth(line) {
+		return line
+	}
+	return ansi.Cut(line, 0, x) + s + ansi.Cut(line, x+ansi.StringWidth(s), ansi.StringWidth(line))
+}
+
 // renderStyledRow renders a row with the row style, letting individual cells
 // override it.
-func (t *table) renderStyledRow(cells []string, widths []int, rowStyle lipgloss.Style, cellStyles []*lipgloss.Style) string {
+func (t *table) renderStyledRow(cells []string, l colLayout, rowStyle lipgloss.Style, cellStyles []*lipgloss.Style) string {
 	if len(cellStyles) == 0 {
-		return rowStyle.Render(t.renderRow(cells, widths))
+		return rowStyle.Render(t.renderRow(cells, l))
 	}
 	var b strings.Builder
 	used := 1
 	b.WriteString(rowStyle.Render(" "))
-	for i, w := range widths {
-		if i > 0 {
+	for j, i := range l.cols {
+		w := l.widths[j]
+		if j > 0 {
 			b.WriteString(rowStyle.Render(strings.Repeat(" ", cellGap)))
 			used += cellGap
 		}
@@ -197,11 +316,12 @@ func (t *table) renderStyledRow(cells []string, widths []int, rowStyle lipgloss.
 	return ansi.Truncate(b.String(), t.width, "")
 }
 
-func (t *table) renderRow(cells []string, widths []int) string {
+func (t *table) renderRow(cells []string, l colLayout) string {
 	var b strings.Builder
 	b.WriteByte(' ')
-	for i, w := range widths {
-		if i > 0 {
+	for j, i := range l.cols {
+		w := l.widths[j]
+		if j > 0 {
 			b.WriteString(strings.Repeat(" ", cellGap))
 		}
 		cell := ""

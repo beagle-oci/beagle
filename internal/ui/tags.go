@@ -251,19 +251,19 @@ func (v *tagsView) setColumns(caps meta.Capabilities) {
 		}},
 	}
 	if caps.Pushed {
-		cols = append(cols, tagColumn{column: column{title: "PUSHED", max: 7, right: true}, value: func(t *tagItem) string {
+		cols = append(cols, tagColumn{column: column{title: "PUSHED", max: 19}, value: func(t *tagItem) string {
 			if t.meta == nil {
 				return ""
 			}
-			return ageTime(t.meta.Pushed, "-")
+			return formatTime(t.meta.Pushed, "-")
 		}})
 	}
 	if caps.Pulled {
-		cols = append(cols, tagColumn{column: column{title: "PULLED", max: 7, right: true}, value: func(t *tagItem) string {
+		cols = append(cols, tagColumn{column: column{title: "PULLED", max: 19}, value: func(t *tagItem) string {
 			if t.meta == nil {
 				return ""
 			}
-			return ageTime(t.meta.Pulled, "never")
+			return formatTime(t.meta.Pulled, "never")
 		}})
 	}
 	if caps.Vulns {
@@ -292,14 +292,14 @@ func (v *tagsView) setColumns(caps meta.Capabilities) {
 		})
 	}
 	if !caps.Pushed {
-		cols = append(cols, tagColumn{column: column{title: "CREATED", max: 7, right: true}, value: func(t *tagItem) string {
+		cols = append(cols, tagColumn{column: column{title: "CREATED", max: 19}, value: func(t *tagItem) string {
 			switch {
 			case t.subject != nil:
 				return ""
 			case loading(t):
 				return "…"
 			}
-			return ageTime(t.created, "-")
+			return formatTime(t.created, "-")
 		}})
 	}
 	cols = append(cols, tagColumn{column: column{title: "INFO", flex: 3}, value: func(t *tagItem) string {
@@ -318,6 +318,8 @@ func (v *tagsView) setColumns(caps meta.Capabilities) {
 }
 
 func (v *tagsView) crumb() string { return "tags" }
+
+func (v *tagsView) refreshRows()  { v.list.refresh() }
 func (v *tagsView) title() string { return "tags" }
 func (v *tagsView) subject() string {
 	if v.provider != "" {

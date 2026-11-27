@@ -34,7 +34,7 @@ func (m treeLoadedMsg) target() int { return m.viewID }
 func newReferrersView(repo, reference string, desc *ocispec.Descriptor) *referrersView {
 	v := &referrersView{repo: repo, reference: reference, desc: desc}
 	v.list = newList(
-		[]column{{title: "ARTIFACT", flex: 3}, {title: "KIND", max: 12}, {title: "DIGEST", max: 19}, {title: "SOURCE", max: 11}, {title: "AGE", max: 6, right: true}},
+		[]column{{title: "ARTIFACT", flex: 3}, {title: "KIND", max: 12}, {title: "DIGEST", max: 19}, {title: "SOURCE", max: 11}, {title: "CREATED", max: 19}},
 		func(n oci.FlatNode) []string {
 			node := n.Node
 			label := nodeLabel(node, v.reference)
@@ -45,7 +45,7 @@ func newReferrersView(repo, reference string, desc *ocispec.Descriptor) *referre
 			if node.Descriptor.Digest != "" {
 				dgst = shortDigest(node.Descriptor.Digest)
 			}
-			return []string{n.Prefix + label, node.Kind.String(), dgst, sourceLabel(node.Source), age(node.Descriptor.Annotations[ocispec.AnnotationCreated])}
+			return []string{n.Prefix + label, node.Kind.String(), dgst, sourceLabel(node.Source), annotationTime(node.Descriptor.Annotations[ocispec.AnnotationCreated])}
 		},
 		func(n oci.FlatNode) lipgloss.Style {
 			if n.Node.Err != nil {
@@ -97,6 +97,8 @@ func (v *referrersView) count() int {
 	}
 	return v.tree.Count()
 }
+
+func (v *referrersView) refreshRows() { v.list.refresh() }
 
 func (v *referrersView) hints() []hint {
 	return []hint{{"enter", "manifest"}, hintOf(keys.Raw), hintOf(keys.Copy), hintOf(keys.Reload)}

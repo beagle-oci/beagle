@@ -3,7 +3,6 @@ package ui
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,7 +28,7 @@ func (m projectsLoadedMsg) target() int { return m.viewID }
 func newProjectsView() *projectsView {
 	return &projectsView{
 		list: newList(
-			[]column{{title: "NAME", flex: 1}, {title: "ACCESS", max: 7}, {title: "TYPE", max: 11}, {title: "REPOS", max: 6, right: true}, {title: "AGE", max: 5, right: true}},
+			[]column{{title: "NAME", flex: 1}, {title: "ACCESS", max: 7}, {title: "TYPE", max: 11}, {title: "REPOS", max: 6, right: true}, {title: "CREATED", max: 19}},
 			func(p harbor.Project) []string {
 				access, kind := "private", "project"
 				if p.Public() {
@@ -38,7 +37,7 @@ func newProjectsView() *projectsView {
 				if p.ProxyCache() {
 					kind = "proxy cache"
 				}
-				return []string{p.Name, access, kind, fmt.Sprint(p.RepoCount), age(p.CreationTime.Format(time.RFC3339))}
+				return []string{p.Name, access, kind, fmt.Sprint(p.RepoCount), formatTime(p.CreationTime, "-")}
 			},
 			func(p harbor.Project) lipgloss.Style {
 				if p.ProxyCache() {
@@ -53,6 +52,8 @@ func newProjectsView() *projectsView {
 func (v *projectsView) crumb() string { return "projects" }
 func (v *projectsView) title() string { return "projects" }
 func (v *projectsView) count() int    { return v.list.count() }
+
+func (v *projectsView) refreshRows() { v.list.refresh() }
 
 func (v *projectsView) hints() []hint {
 	return []hint{{"enter", "repositories"}, hintOf(keys.Reload)}

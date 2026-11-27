@@ -163,24 +163,41 @@ func shortMediaType(mt string) string {
 	return mt
 }
 
-// ageTime renders t relative to now; zero times render as unknown.
-func ageTime(t time.Time, unknown string) string {
-	if t.IsZero() {
+// timeLayout is how beagle renders points in time: local time, to the second.
+const timeLayout = "2006-01-02 15:04:05"
+
+// relativeTimes switches time columns from timestamps to ages, k9s style.
+// The t key and the :time command toggle it for the whole app.
+var relativeTimes bool
+
+// formatTime renders t as a local timestamp or, with relativeTimes, as an
+// age; zero times render as unknown.
+func formatTime(t time.Time, unknown string) string {
+	switch {
+	case t.IsZero():
 		return unknown
+	case relativeTimes:
+		return age(t)
 	}
-	return age(t.Format(time.RFC3339))
+	return t.Local().Format(timeLayout)
 }
 
-// age renders an RFC 3339 timestamp relative to now, k9s style.
-func age(ts string) string {
+// annotationTime renders an RFC 3339 annotation value like formatTime and
+// returns anything else unchanged.
+func annotationTime(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
 		return ts
 	}
+	return formatTime(t, "")
+}
+
+// age renders t relative to now, e.g. "5m" or "3d".
+func age(t time.Time) string {
 	d := time.Since(t)
 	switch {
 	case d < 0:
-		return t.Format("2006-01-02")
+		return t.Local().Format("2006-01-02")
 	case d < time.Minute:
 		return fmt.Sprintf("%ds", int(d.Seconds()))
 	case d < time.Hour:
@@ -192,4 +209,10 @@ func age(ts string) string {
 	default:
 		return fmt.Sprintf("%dy", int(d.Hours()/24/365))
 	}
+}
+
+// rowRefresher is implemented by views whose rows depend on display
+// settings such as relativeTimes.
+type rowRefresher interface {
+	refreshRows()
 }

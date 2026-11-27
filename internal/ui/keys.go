@@ -10,6 +10,7 @@ type keyMap struct {
 	Command   key.Binding
 	Filter    key.Binding
 	Reload    key.Binding
+	Time      key.Binding
 
 	Up       key.Binding
 	Down     key.Binding
@@ -17,6 +18,8 @@ type keyMap struct {
 	PageDown key.Binding
 	Top      key.Binding
 	Bottom   key.Binding
+	Left     key.Binding
+	Right    key.Binding
 
 	Open      key.Binding
 	Referrers key.Binding
@@ -35,6 +38,7 @@ var keys = keyMap{
 	Command:   key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "command")),
 	Filter:    key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 	Reload:    key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("ctrl-r", "reload")),
+	Time:      key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "timestamps / age")),
 
 	Up:       key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
 	Down:     key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
@@ -42,6 +46,8 @@ var keys = keyMap{
 	PageDown: key.NewBinding(key.WithKeys("pgdown", "ctrl+f", " "), key.WithHelp("pgdn", "page down")),
 	Top:      key.NewBinding(key.WithKeys("home", "g"), key.WithHelp("g", "top")),
 	Bottom:   key.NewBinding(key.WithKeys("end", "G"), key.WithHelp("G", "bottom")),
+	Left:     key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "scroll left")),
+	Right:    key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "scroll right")),
 
 	Open:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open")),
 	Referrers: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "referrers")),
