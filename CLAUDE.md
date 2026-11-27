@@ -113,6 +113,9 @@ install.sh           curl | sh installer for GitHub release binaries
   around the visible window; the app calls it after every update (`lazyLoader`).
   Keep per-tag work cheap (manifest, one referrers call, at most config fetch).
 - Cells can be styled individually (`list.cell`), e.g. green SIGNED, red VULNS.
+- `table.layout` decides the visible columns: if all fit, flex columns share
+  the free space; otherwise column 0 stays put and the rest scroll sideways
+  (`xoff`, ←/→ or h/l), with ◀/▶ in the header marking hidden columns.
 - Points in time go through `formatTime` / `annotationTime` (`view.go`): local
   timestamps (`2006-01-02 15:04:05`) by default, ages when `relativeTimes` is
   set (`t` key, `:time`). Views with time columns implement `rowRefresher` so

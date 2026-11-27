@@ -414,6 +414,49 @@ func TestTagColumnsDockerHub(t *testing.T) {
 	}
 }
 
+func TestHorizontalScroll(t *testing.T) {
+	r := newHarborRegistry()
+	r.Harbor.Vulns = map[string]map[string]int{"demo/app": {"Critical": 1}}
+	h := newHarness(t, r, Options{Repository: "demo/app"})
+	h.send(tea.WindowSizeMsg{Width: 90, Height: 15})
+
+	s := h.expect("narrow", "TAG", "KIND", "▶")
+	if strings.Contains(s, "VULNS") || strings.Contains(s, "◀") {
+		t.Fatalf("narrow tag list should hide the right columns:\n%s", s)
+	}
+	h.key("right", "l", "l", "l", "l")
+	s = h.expect("scrolled", "TAG", "◀", "VULNS", "INFO", "C1")
+	if strings.Contains(s, "KIND") || strings.Contains(s, "▶") {
+		t.Fatalf("scrolled tag list should hide the left columns:\n%s", s)
+	}
+	h.key("left", "h", "h", "h", "h")
+	h.expect("back", "KIND", "▶")
+
+	// Wide enough: nothing to scroll.
+	h.send(tea.WindowSizeMsg{Width: 200, Height: 15})
+	if s := h.expect("wide", "KIND", "VULNS"); strings.ContainsAny(s, "◀▶") {
+		t.Fatalf("wide tag list shows scroll arrows:\n%s", s)
+	}
+}
+
+func TestHelpLayout(t *testing.T) {
+	for _, w := range []int{200, 120, 50} {
+		help := renderHelp(w, 60)
+		for _, want := range []string{"GENERAL", "NAVIGATION", "RESOURCE", "COMMANDS", ":q"} {
+			if !strings.Contains(help, want) {
+				t.Fatalf("help at width %d lacks %q:\n%s", w, want, help)
+			}
+		}
+		lines := strings.Split(help, "\n")
+		if w == 120 && len(lines) > 30 {
+			t.Fatalf("help at width 120 should use two sections per row, got %d lines", len(lines))
+		}
+		if w == 200 && len(lines) > 15 {
+			t.Fatalf("help at width 200 should show all sections side by side, got %d lines", len(lines))
+		}
+	}
+}
+
 func TestTimeToggle(t *testing.T) {
 	t.Cleanup(func() { relativeTimes = false })
 	r := newHarborRegistry()

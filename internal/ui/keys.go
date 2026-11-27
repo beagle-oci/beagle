@@ -18,6 +18,8 @@ type keyMap struct {
 	PageDown key.Binding
 	Top      key.Binding
 	Bottom   key.Binding
+	Left     key.Binding
+	Right    key.Binding
 
 	Open      key.Binding
 	Referrers key.Binding
@@ -44,6 +46,8 @@ var keys = keyMap{
 	PageDown: key.NewBinding(key.WithKeys("pgdown", "ctrl+f", " "), key.WithHelp("pgdn", "page down")),
 	Top:      key.NewBinding(key.WithKeys("home", "g"), key.WithHelp("g", "top")),
 	Bottom:   key.NewBinding(key.WithKeys("end", "G"), key.WithHelp("G", "bottom")),
+	Left:     key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "scroll left")),
+	Right:    key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "scroll right")),
 
 	Open:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open")),
 	Referrers: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "referrers")),

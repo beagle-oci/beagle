@@ -164,6 +164,7 @@ users, so the header may show "version hidden".
 | `a`              | Show/hide `sha256-*` tags in the tag list           |
 | `o`              | Sort tags: registry order / newest first / name     |
 | `t`              | Show times as timestamps / age                      |
+| `←` `→` / `h` `l` | Scroll columns sideways when they do not fit       |
 | `/`              | Filter the current list                             |
 | `:`              | Command mode (`tab` completes)                      |
 | `esc` / `q`      | Back (clears an active filter first)                |
