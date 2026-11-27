@@ -26,4 +26,34 @@ jobs:
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
 
       - name: Test with coverage
-        run: sh hack/coverage.sh markdown >> "$GITHUB_STEP_SUMMARY"
+        run: COVERAGE_BADGE=coverage.json sh hack/coverage.sh markdown >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        if: github.event_name == 'push'
+        with:
+          name: coverage-badge
+          path: coverage.json
+
+  # Publishes the coverage badge JSON to the "badges" branch, which the README
+  # badge reads via shields.io. Only this job may write to the repository.
+  coverage-badge:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage-badge
+
+      - name: Push to the badges branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coverage.json
+          git commit -q -m "Update coverage badge for ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" badges

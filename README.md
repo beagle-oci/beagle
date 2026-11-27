@@ -1,6 +1,7 @@
 # beagle
 
 [![CI](https://github.com/beagle-oci/beagle/actions/workflows/ci.yml/badge.svg)](https://github.com/beagle-oci/beagle/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbeagle-oci%2Fbeagle%2Fbadges%2Fcoverage.json)](https://github.com/beagle-oci/beagle/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/beagle-oci/beagle)](https://github.com/beagle-oci/beagle/releases/latest)
 [![Go Reference](https://pkg.go.dev/badge/github.com/beagle-oci/beagle.svg)](https://pkg.go.dev/github.com/beagle-oci/beagle)
 [![Go Report Card](https://goreportcard.com/badge/github.com/beagle-oci/beagle)](https://goreportcard.com/report/github.com/beagle-oci/beagle)

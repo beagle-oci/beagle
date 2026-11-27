@@ -132,6 +132,10 @@ install.sh           curl | sh installer for GitHub release binaries
 - Coverage: `make cover` / CI summary. It counts cross-package coverage and
   excludes `ocitest` and `hack/`. Keep it at or above ~90 %; new code comes
   with tests.
+- The README coverage badge reads `coverage.json` (shields.io endpoint format)
+  from the `badges` branch. The `coverage-badge` job in `ci.yml` force-pushes
+  it there after every push to `main` (`COVERAGE_BADGE` in `hack/coverage.sh`).
+  Never commit to the `badges` branch by hand.
 - For manual end-to-end checks use `make registry` + `make seed` (or
   `registry-noreferrers` on :5051) and run beagle against them.
 
