@@ -28,6 +28,8 @@ type table struct {
 	cols   []column
 	rows   [][]string
 	styles []lipgloss.Style
+	// cellStyles optionally overrides the row style per cell (nil = row style).
+	cellStyles [][]*lipgloss.Style
 
 	cursor int
 	offset int
@@ -40,8 +42,8 @@ func (t *table) setSize(w, h int) {
 	t.clamp()
 }
 
-func (t *table) setRows(rows [][]string, styles []lipgloss.Style) {
-	t.rows, t.styles = rows, styles
+func (t *table) setRows(rows [][]string, styles []lipgloss.Style, cellStyles [][]*lipgloss.Style) {
+	t.rows, t.styles, t.cellStyles = rows, styles, cellStyles
 	t.clamp()
 }
 
@@ -141,17 +143,58 @@ func (t *table) view() string {
 	end := min(t.offset+t.bodyHeight(), len(t.rows))
 	for i := t.offset; i < end; i++ {
 		b.WriteByte('\n')
-		line := t.renderRow(t.rows[i], widths)
-		switch {
-		case i == t.cursor:
-			b.WriteString(styleSelected.Render(line))
-		case i < len(t.styles):
-			b.WriteString(t.styles[i].Render(line))
-		default:
-			b.WriteString(styleRow.Render(line))
+		if i == t.cursor {
+			b.WriteString(styleSelected.Render(t.renderRow(t.rows[i], widths)))
+			continue
 		}
+		rowStyle := styleRow
+		if i < len(t.styles) {
+			rowStyle = t.styles[i]
+		}
+		var cells []*lipgloss.Style
+		if i < len(t.cellStyles) {
+			cells = t.cellStyles[i]
+		}
+		b.WriteString(t.renderStyledRow(t.rows[i], widths, rowStyle, cells))
 	}
 	return b.String()
+}
+
+// renderStyledRow renders a row with the row style, letting individual cells
+// override it.
+func (t *table) renderStyledRow(cells []string, widths []int, rowStyle lipgloss.Style, cellStyles []*lipgloss.Style) string {
+	if len(cellStyles) == 0 {
+		return rowStyle.Render(t.renderRow(cells, widths))
+	}
+	var b strings.Builder
+	used := 1
+	b.WriteString(rowStyle.Render(" "))
+	for i, w := range widths {
+		if i > 0 {
+			b.WriteString(rowStyle.Render(strings.Repeat(" ", cellGap)))
+			used += cellGap
+		}
+		cell := ""
+		if i < len(cells) {
+			cell = cells[i]
+		}
+		cell = ansi.Truncate(cell, w, "…")
+		pad := strings.Repeat(" ", max(w-ansi.StringWidth(cell), 0))
+		text := cell + pad
+		if t.cols[i].right {
+			text = pad + cell
+		}
+		style := rowStyle
+		if i < len(cellStyles) && cellStyles[i] != nil {
+			style = *cellStyles[i]
+		}
+		b.WriteString(style.Render(text))
+		used += w
+	}
+	if used < t.width {
+		b.WriteString(rowStyle.Render(strings.Repeat(" ", t.width-used)))
+	}
+	return ansi.Truncate(b.String(), t.width, "")
 }
 
 func (t *table) renderRow(cells []string, widths []int) string {
@@ -188,6 +231,8 @@ type list[T any] struct {
 	filter  string
 	row     func(T) []string
 	style   func(T) lipgloss.Style
+	// cell optionally styles single cells (return nil for the row style).
+	cell func(item T, col int) *lipgloss.Style
 }
 
 func newList[T any](cols []column, row func(T) []string, style func(T) lipgloss.Style) *list[T] {
@@ -214,6 +259,7 @@ func (l *list[T]) refresh() {
 	l.visible = l.visible[:0]
 	rows := make([][]string, 0, len(l.items))
 	styles := make([]lipgloss.Style, 0, len(l.items))
+	var cellStyles [][]*lipgloss.Style
 	for i, it := range l.items {
 		r := l.row(it)
 		if needle != "" && !strings.Contains(strings.ToLower(strings.Join(r, " ")), needle) {
@@ -226,8 +272,15 @@ func (l *list[T]) refresh() {
 		} else {
 			styles = append(styles, styleRow)
 		}
+		if l.cell != nil {
+			cs := make([]*lipgloss.Style, len(l.cols))
+			for c := range l.cols {
+				cs[c] = l.cell(it, c)
+			}
+			cellStyles = append(cellStyles, cs)
+		}
 	}
-	l.setRows(rows, styles)
+	l.setRows(rows, styles, cellStyles)
 }
 
 func (l *list[T]) selected() (T, bool) {

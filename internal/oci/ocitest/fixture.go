@@ -3,10 +3,14 @@ package ocitest
 import (
 	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
+
+// Created is the build time stored in the image configs created by Seed.
+var Created = time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
 
 // Fixture describes the content created by Seed.
 type Fixture struct {
@@ -34,7 +38,9 @@ func Seed(r *Registry) Fixture {
 	f := Fixture{Repo: repo, ChartRepo: "demo/chart"}
 
 	image := func(arch string) ocispec.Descriptor {
+		created := Created
 		cfg, _ := json.Marshal(ocispec.Image{
+			Created:  &created,
 			Platform: ocispec.Platform{OS: "linux", Architecture: arch},
 			Config:   ocispec.ImageConfig{Entrypoint: []string{"/app"}},
 			RootFS:   ocispec.RootFS{Type: "layers"},

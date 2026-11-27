@@ -24,6 +24,7 @@ type keyMap struct {
 	Subject   key.Binding
 	Copy      key.Binding
 	ToggleAll key.Binding
+	Sort      key.Binding
 }
 
 var keys = keyMap{
@@ -48,6 +49,7 @@ var keys = keyMap{
 	Subject:   key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "go to subject")),
 	Copy:      key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copy reference")),
 	ToggleAll: key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "toggle sha256-* tags")),
+	Sort:      key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "sort: registry/newest/name")),
 }
 
 // hint is a key shown in the header.

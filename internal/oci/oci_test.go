@@ -273,3 +273,63 @@ func TestHostHelpers(t *testing.T) {
 		t.Errorf("NormalizeRepository(bitnami/nginx) = %q", got)
 	}
 }
+
+func TestAttachmentsAndCreated(t *testing.T) {
+	for _, api := range []bool{true, false} {
+		r := ocitest.New()
+		r.ReferrersAPI = api
+		f := ocitest.Seed(r)
+		c := newClient(t, r)
+		ctx := context.Background()
+		tags, err := c.Tags(ctx, f.Repo)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		a, err := c.Attachments(ctx, f.Repo, f.Index, tags)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// sigstore bundle signature + cosign legacy .sig tag -> "cosign";
+		// SBOM and SLSA provenance are attached as well.
+		if strings.Join(a.Signatures, ",") != "cosign" || a.Kinds[oci.KindSBOM] != 1 || a.Kinds[oci.KindAttestation] != 1 {
+			t.Errorf("index attachments (api=%v) = %+v", api, a)
+		}
+
+		amd, err := c.Attachments(ctx, f.Repo, f.AMD64, tags)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(amd.Signatures, ",") != "notation" {
+			t.Errorf("amd64 signatures = %v", amd.Signatures)
+		}
+
+		arm, err := c.Attachments(ctx, f.Repo, f.ARM64, tags)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if arm.Signed() {
+			t.Errorf("arm64 should be unsigned: %+v", arm)
+		}
+
+		idx, err := c.FetchManifest(ctx, f.Repo, f.Index)
+		if err != nil {
+			t.Fatal(err)
+		}
+		created, err := c.Created(ctx, f.Repo, idx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !created.Equal(ocitest.Created) {
+			t.Errorf("created = %v, want %v", created, ocitest.Created)
+		}
+
+		chart, err := c.FetchManifestReference(ctx, f.ChartRepo, "0.1.0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if created, _ := c.Created(ctx, f.ChartRepo, chart); !created.IsZero() {
+			t.Errorf("chart has no build time, got %v", created)
+		}
+	}
+}

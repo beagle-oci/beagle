@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
@@ -147,4 +148,45 @@ func projectNames(ps []harbor.Project) string {
 		names[i] = p.Name
 	}
 	return strings.Join(names, ",")
+}
+
+func TestTagMetadata(t *testing.T) {
+	r, url := newHarbor(t)
+	pushed := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	pulled := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	r.Harbor.PushTimes = map[string]time.Time{"demo/app:v1.0.0": pushed}
+	r.Harbor.PullTimes = map[string]time.Time{"demo/app:v1.0.0": pulled}
+	r.Harbor.Vulns = map[string]map[string]int{"demo/app": {"Critical": 1, "High": 2}}
+
+	c, err := harbor.Detect(context.Background(), url, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.PageSize = 1 // the artifacts list is paginated as well
+	infos, err := c.Tags(context.Background(), "demo/app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v1 := infos["v1.0.0"]
+	if !v1.Pushed.Equal(pushed) || !v1.Pulled.Equal(pulled) {
+		t.Fatalf("v1.0.0 times = %+v", v1)
+	}
+	if strings.Join(v1.Signatures, ",") != "cosign" || len(v1.Attached) != 1 || v1.Attached[0] != "sbom" {
+		t.Fatalf("v1.0.0 accessories = %+v", v1)
+	}
+	if v1.Vulns == nil || v1.Vulns.String() != "C1 H2" || v1.Vulns.Scanner != "Trivy" {
+		t.Fatalf("v1.0.0 vulns = %+v", v1.Vulns)
+	}
+	if latest := infos["latest"]; !latest.Pulled.IsZero() {
+		t.Fatalf("latest should never have been pulled: %+v", latest)
+	}
+
+	// Nested repository names are encoded twice (a/b -> a%252Fb).
+	nested, err := c.Tags(context.Background(), "cache/library/nginx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := nested["1.27"]; !ok {
+		t.Fatalf("nested repository tags = %v", nested)
+	}
 }

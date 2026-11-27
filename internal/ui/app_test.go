@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2/registry/remote/auth"
 
+	"github.com/beagle-oci/beagle/internal/dockerhub"
 	"github.com/beagle-oci/beagle/internal/harbor"
 	"github.com/beagle-oci/beagle/internal/oci"
 	"github.com/beagle-oci/beagle/internal/oci/ocitest"
@@ -60,6 +62,9 @@ func newHarnessWithLogin(t *testing.T, r *ocitest.Registry, opts Options, user, 
 			t.Fatal(err)
 		}
 		opts.Harbor = hc
+		if opts.Metadata == nil {
+			opts.Metadata = hc
+		}
 	}
 	h := &harness{t: t, app: New(opts)}
 	h.send(tea.WindowSizeMsg{Width: 160, Height: 45})
@@ -294,7 +299,7 @@ func TestHarborNavigation(t *testing.T) {
 	h.expect("repos", "repositories(demo)[2]", "demo/app", "demo/chart", "ARTIFACTS", "42", "<projects>", "<repositories>")
 
 	h.key("enter")
-	h.expect("tags", "tags(demo/app)[3]", "v1.0.0")
+	h.expect("tags", "tags(demo/app · harbor)[3]", "v1.0.0")
 
 	h.key(":")
 	h.typeText("projects")
@@ -319,4 +324,114 @@ func TestHarborStartWithRepository(t *testing.T) {
 	h.expect("start", "manifest(demo/app:v1.0.0)", "<projects>", "<repositories>", "<tags>", "<manifest>")
 	h.key("esc", "esc")
 	h.expect("repos", "repositories(demo)[2]")
+}
+
+// row returns the screen line that contains needle.
+func row(t *testing.T, screen, needle string) string {
+	t.Helper()
+	for _, l := range strings.Split(screen, "\n") {
+		if strings.Contains(l, needle) {
+			return l
+		}
+	}
+	t.Fatalf("no line contains %q:\n%s", needle, screen)
+	return ""
+}
+
+func TestTagColumnsGeneric(t *testing.T) {
+	r := ocitest.New()
+	ocitest.Seed(r)
+	h := newHarness(t, r, Options{Repository: "demo/app"})
+	s := h.expect("generic", "SIGNED", "ATTACHED", "CREATED")
+	if strings.Contains(s, "PUSHED") || strings.Contains(s, "VULNS") {
+		t.Fatalf("generic registry should not show vendor columns:\n%s", s)
+	}
+	v1 := row(t, s, "v1.0.0")
+	for _, want := range []string{"✓ cosign", "sbom att", "d"} {
+		if !strings.Contains(v1, want) {
+			t.Fatalf("row %q lacks %q", v1, want)
+		}
+	}
+}
+
+func TestTagColumnsHarbor(t *testing.T) {
+	r := newHarborRegistry()
+	r.Harbor.PushTimes = map[string]time.Time{
+		"demo/app:latest": time.Now().Add(-72 * time.Hour),
+		"demo/app:v1.0.0": time.Now().Add(-2 * time.Hour),
+	}
+	r.Harbor.PullTimes = map[string]time.Time{"demo/app:v1.0.0": time.Now().Add(-30 * time.Minute)}
+	r.Harbor.Vulns = map[string]map[string]int{"demo/app": {"Critical": 1, "High": 2}}
+	h := newHarness(t, r, Options{Repository: "demo/app"})
+
+	s := h.expect("harbor", "tags(demo/app · harbor)[3]", "PUSHED", "PULLED", "VULNS")
+	if strings.Contains(s, "CREATED") {
+		t.Fatalf("Harbor shows push times instead of build times:\n%s", s)
+	}
+	v1 := row(t, s, "v1.0.0")
+	for _, want := range []string{"✓ cosign", "2h", "30m", "C1 H2"} {
+		if !strings.Contains(v1, want) {
+			t.Fatalf("row %q lacks %q", v1, want)
+		}
+	}
+	if latest := row(t, s, "latest"); !strings.Contains(latest, "never") || !strings.Contains(latest, "3d") {
+		t.Fatalf("latest row = %q", latest)
+	}
+
+	// Registry order lists latest first; "newest first" puts v1.0.0 on top.
+	h.key("o")
+	s = h.expect("sorted", "push time")
+	if strings.Index(s, "v1.0.0") > strings.Index(s, " latest ") {
+		t.Fatalf("v1.0.0 should come first when sorted by push time:\n%s", s)
+	}
+}
+
+func TestTagColumnsDockerHub(t *testing.T) {
+	r := ocitest.New()
+	ocitest.Seed(r)
+	hub := &ocitest.Hub{Registry: r, PullTimes: map[string]time.Time{"demo/app:v1.0.0": time.Now().Add(-3 * time.Hour)}}
+	hc := dockerhub.New(nil)
+	hc.BaseURL = hub.Start(t)
+
+	h := newHarness(t, r, Options{Repository: "demo/app", Metadata: hc})
+	s := h.expect("hub", "tags(demo/app · docker-hub)[3]", "PUSHED", "PULLED")
+	if strings.Contains(s, "VULNS") {
+		t.Fatalf("Docker Hub provides no scan results:\n%s", s)
+	}
+	if v1 := row(t, s, "v1.0.0"); !strings.Contains(v1, "3h") {
+		t.Fatalf("row %q lacks the pull time", v1)
+	}
+}
+
+func TestLazyLoading(t *testing.T) {
+	r := ocitest.New()
+	m := ocispec.Manifest{MediaType: ocispec.MediaTypeImageManifest}
+	m.SchemaVersion = 2
+	d := r.PushManifest("big/repo", "tag-000", ocispec.MediaTypeImageManifest, m)
+	for i := 1; i < 300; i++ {
+		r.Tag("big/repo", fmt.Sprintf("tag-%03d", i), d.Digest)
+	}
+	h := newHarness(t, r, Options{Repository: "big/repo"})
+	h.expect("big", "tags(big/repo)[300]")
+
+	tv := h.app.top().(*tagsView)
+	loaded := func() int {
+		n := 0
+		for _, it := range tv.all {
+			if it.state != stateIdle {
+				n++
+			}
+		}
+		return n
+	}
+	if n := loaded(); n == 0 || n > 60 {
+		t.Fatalf("expected only the visible rows to load, got %d of 300", n)
+	}
+	h.key("G")
+	if last := tv.all[299]; last.state != stateDone {
+		t.Fatalf("the last tag should load after jumping to the bottom (state %d)", last.state)
+	}
+	if n := loaded(); n > 120 {
+		t.Fatalf("jumping to the bottom should not load everything, got %d", n)
+	}
 }

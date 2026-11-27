@@ -50,13 +50,16 @@ listens there and answers with `403 Forbidden`.
 ```
 .github/workflows/   ci (vet, fmt, test) and release (GoReleaser on v* tags)
 cmd/beagle/          CLI entry point: flag parsing, target parsing, ping, start TUI
-internal/harbor/     Harbor v2.0 API client (detection, projects, repositories), stdlib only
+internal/meta/       vendor tag metadata types + Provider interface (push/pull, scans)
+internal/harbor/     Harbor v2.0 API client (detection, projects, repositories, artifacts), stdlib only
+internal/dockerhub/  Docker Hub tags API client (push/pull times), stdlib only
 internal/oci/        registry access (wraps oras-go v2), no UI code
   client.go          Client: repositories, tags, resolve, manifests, blobs, referrers
   manifest.go        Manifest parsing (OCI + Docker media types)
   classify.go        Kind classification (signature, sbom, attestation, ...)
   subjecttag.go      cosign legacy tags and referrers tag schema (sha256-<hex>[.sig])
   tree.go            ReferrerTree: recursive referrers + cosign tags + index platforms
+  details.go         Attachments (signature formats, attached kinds) and Created (build time)
   ocitest/           in-memory registry (+ fake Harbor API) and fixtures for tests
 internal/ui/         Bubble Tea UI
   app.go             root model: view stack, command/filter prompt, header, status
@@ -97,6 +100,16 @@ install.sh           curl | sh installer for GitHub release binaries
   (`oci.Client.Credential`) over `oci.Client.HTTPClient()`. Harbor hides its
   version from anonymous users; detection relies on `auth_mode` too.
   `--no-harbor` disables all of this.
+- Tag list: generic columns (SIGNED, ATTACHED, CREATED) come from
+  `oci.Attachments`/`oci.Created` and work on every registry. Vendor columns
+  (PUSHED, PULLED, VULNS) come from a `meta.Provider` (Harbor, Docker Hub),
+  chosen in `cmd/beagle`; `setColumns` picks columns from its `Capabilities`.
+  New vendors: implement `meta.Provider` in its own stdlib-only package, wire
+  it in `cmd/beagle/main.go`, add a fake in `ocitest`.
+- Tag details load lazily: `tagsView.loadVisible` only resolves rows in and
+  around the visible window; the app calls it after every update (`lazyLoader`).
+  Keep per-tag work cheap (manifest, one referrers call, at most config fetch).
+- Cells can be styled individually (`list.cell`), e.g. green SIGNED, red VULNS.
 - Rows are colored by `oci.Kind` (`kindStyle` in `styles.go`), the way k9s
   colors rows by status.
 
@@ -106,7 +119,8 @@ install.sh           curl | sh installer for GitHub release binaries
   `internal/oci/ocitest` (`ocitest.New()`, `ocitest.Seed()`); toggle
   `ReferrersAPI`, `ReferrersDisabledStatus` and `Catalog` to cover registry
   variants, and set `Harbor` for the fake Harbor API (private projects,
-  proxy cache projects, basic auth, pagination).
+  proxy cache projects, basic auth, pagination, artifacts with push/pull
+  times, accessories and scans). `ocitest.Hub` fakes the Docker Hub tags API.
 - UI tests (`internal/ui/app_test.go`) drive the real `App` through a harness
   that executes commands synchronously and asserts on the rendered screen.
   Set `BEAGLE_SNAPSHOT_DIR=/some/dir` to dump colored screens (`*.ansi`).

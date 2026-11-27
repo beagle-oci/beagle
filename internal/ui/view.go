@@ -10,6 +10,7 @@ import (
 	"github.com/opencontainers/go-digest"
 
 	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/meta"
 	"github.com/beagle-oci/beagle/internal/oci"
 )
 
@@ -50,6 +51,14 @@ type env struct {
 	client *oci.Client
 	// harbor is set when the registry is a Harbor instance.
 	harbor *harbor.Client
+	// meta provides vendor tag metadata (push/pull times, scans). Optional.
+	meta meta.Provider
+}
+
+// lazyLoader views load data for what is currently visible. The app calls
+// loadVisible after every update of the top view.
+type lazyLoader interface {
+	loadVisible(e *env) tea.Cmd
 }
 
 func (e *env) timeout() (context.Context, context.CancelFunc) {
@@ -147,6 +156,14 @@ func shortMediaType(mt string) string {
 		return ""
 	}
 	return mt
+}
+
+// ageTime renders t relative to now; zero times render as unknown.
+func ageTime(t time.Time, unknown string) string {
+	if t.IsZero() {
+		return unknown
+	}
+	return age(t.Format(time.RFC3339))
 }
 
 // age renders an RFC 3339 timestamp relative to now, k9s style.

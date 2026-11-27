@@ -24,7 +24,7 @@ func helpSections() []helpSection {
 	return []helpSection{
 		{"GENERAL", b(keys.Command, keys.Filter, keys.Help, keys.Back, keys.Quit, keys.ForceQuit, keys.Reload)},
 		{"NAVIGATION", b(keys.Up, keys.Down, keys.PageUp, keys.PageDown, keys.Top, keys.Bottom)},
-		{"RESOURCE", b(keys.Open, keys.Referrers, keys.Raw, keys.Subject, keys.Copy, keys.ToggleAll)},
+		{"RESOURCE", b(keys.Open, keys.Referrers, keys.Raw, keys.Subject, keys.Copy, keys.ToggleAll, keys.Sort)},
 		{"COMMANDS", []hint{
 			{":repos", "back to the start view"},
 			{":projects", "Harbor projects"},

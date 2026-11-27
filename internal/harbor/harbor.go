@@ -101,10 +101,10 @@ func Detect(ctx context.Context, baseURL string, httpClient *http.Client, cred C
 	// version to authenticated users. Try with credentials first and fall
 	// back to anonymous access if they are rejected.
 	var info SystemInfo
-	_, err := c.do(ctx, "/systeminfo", nil, &info, true)
+	_, err := c.do(ctx, "/systeminfo", nil, &info, true, nil)
 	if errors.Is(err, ErrUnauthorized) {
 		info = SystemInfo{}
-		_, err = c.do(ctx, "/systeminfo", nil, &info, false)
+		_, err = c.do(ctx, "/systeminfo", nil, &info, false, nil)
 	}
 	if err != nil {
 		if ctx.Err() != nil {
@@ -127,15 +127,15 @@ func (c *Client) Version() string { return c.info.HarborVersion }
 
 // Projects lists all projects visible to the current user.
 func (c *Client) Projects(ctx context.Context) ([]Project, error) {
-	return list[Project](ctx, c, "/projects")
+	return list[Project](ctx, c, "/projects", nil, nil)
 }
 
 // Repositories lists the repositories of a project.
 func (c *Client) Repositories(ctx context.Context, project string) ([]Repository, error) {
-	return list[Repository](ctx, c, "/projects/"+url.PathEscape(project)+"/repositories")
+	return list[Repository](ctx, c, "/projects/"+url.PathEscape(project)+"/repositories", nil, nil)
 }
 
-func list[T any](ctx context.Context, c *Client, path string) ([]T, error) {
+func list[T any](ctx context.Context, c *Client, path string, extra url.Values, headers map[string]string) ([]T, error) {
 	pageSize := c.PageSize
 	if pageSize <= 0 {
 		pageSize = DefaultPageSize
@@ -143,8 +143,11 @@ func list[T any](ctx context.Context, c *Client, path string) ([]T, error) {
 	var all []T
 	for page := 1; page <= maxPages; page++ {
 		q := url.Values{"page": {strconv.Itoa(page)}, "page_size": {strconv.Itoa(pageSize)}}
+		for k, v := range extra {
+			q[k] = v
+		}
 		var batch []T
-		total, err := c.do(ctx, path, q, &batch, true)
+		total, err := c.do(ctx, path, q, &batch, true, headers)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +173,7 @@ func (e *statusError) Error() string {
 
 // do performs a GET request and decodes the JSON response into out. It
 // returns the X-Total-Count header (-1 if absent).
-func (c *Client) do(ctx context.Context, path string, query url.Values, out any, withAuth bool) (int, error) {
+func (c *Client) do(ctx context.Context, path string, query url.Values, out any, withAuth bool, headers map[string]string) (int, error) {
 	u := c.baseURL + apiPrefix + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
@@ -184,6 +187,9 @@ func (c *Client) do(ctx context.Context, path string, query url.Values, out any,
 	req.Header.Set("X-Is-Resource-Name", "true")
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 	if withAuth && c.cred != nil {
 		user, pass, err := c.cred(ctx)

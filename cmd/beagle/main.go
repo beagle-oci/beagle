@@ -12,7 +12,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/beagle-oci/beagle/internal/dockerhub"
 	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/meta"
 	"github.com/beagle-oci/beagle/internal/oci"
 	"github.com/beagle-oci/beagle/internal/ui"
 )
@@ -94,7 +96,18 @@ func run(args []string) error {
 		hc = detectHarbor(ctx, client)
 	}
 
-	app := ui.New(ui.Options{Client: client, Harbor: hc, Version: version, Repository: repo, Reference: ref})
+	// Vendor APIs add push/pull times and scan results to the tag list.
+	var provider meta.Provider
+	switch {
+	case hc != nil:
+		provider = hc
+	case client.Host() == "docker.io":
+		hub := dockerhub.New(client.HTTPClient())
+		hub.UserAgent = "beagle/" + version
+		provider = hub
+	}
+
+	app := ui.New(ui.Options{Client: client, Harbor: hc, Metadata: provider, Version: version, Repository: repo, Reference: ref})
 	_, err = tea.NewProgram(app, tea.WithAltScreen()).Run()
 	return err
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/beagle-oci/beagle/internal/harbor"
+	"github.com/beagle-oci/beagle/internal/meta"
 	"github.com/beagle-oci/beagle/internal/oci"
 )
 
@@ -23,8 +24,10 @@ import (
 type Options struct {
 	Client *oci.Client
 	// Harbor enables project browsing via the Harbor API. Optional.
-	Harbor  *harbor.Client
-	Version string
+	Harbor *harbor.Client
+	// Metadata provides vendor tag metadata such as push/pull times. Optional.
+	Metadata meta.Provider
+	Version  string
 	// Repository and Reference optionally select where beagle starts.
 	Repository string
 	Reference  string
@@ -72,7 +75,7 @@ func New(opts Options) *App {
 	in.PromptStyle = stylePrompt
 	in.CompletionStyle = styleMuted
 	return &App{
-		env:     &env{ctx: ctx, client: opts.Client, harbor: opts.Harbor},
+		env:     &env{ctx: ctx, client: opts.Client, harbor: opts.Harbor, meta: opts.Metadata},
 		cancel:  cancel,
 		opts:    opts,
 		input:   in,
@@ -196,7 +199,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	return a, tea.Batch(cmd, a.startSpinner())
+	var lazy tea.Cmd
+	if len(a.stack) > 0 {
+		if l, ok := a.top().(lazyLoader); ok {
+			lazy = l.loadVisible(a.env)
+		}
+	}
+	return a, tea.Batch(cmd, lazy, a.startSpinner())
 }
 
 func (a *App) handleKey(msg tea.KeyMsg) (tea.Cmd, bool) {

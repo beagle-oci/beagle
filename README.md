@@ -32,6 +32,11 @@ legacy cosign tags.
   OCI 1.1 tag fallback (`sha256-<hex>`), and legacy cosign tags (`.sig`, `.att`, `.sbom`)
 - Classifies artifacts: signatures (cosign/sigstore bundles, Notation), SBOMs (SPDX,
   CycloneDX), attestations (in-toto, SLSA, buildx), vulnerability reports, VEX, Helm charts
+- Tag list with supply chain columns on every registry: **SIGNED** (cosign, Notation),
+  **ATTACHED** (SBOM, attestation, VEX, scan reports) and the build time (**CREATED**)
+- Push and pull times (**PUSHED**, **PULLED**) where the registry offers them: Harbor and
+  Docker Hub; Harbor additionally shows the vulnerability scan summary (**VULNS**)
+- Details are loaded only for the tags you look at, so large repositories stay fast
 - Raw JSON view with syntax highlighting for manifests and small blobs (configs, SBOMs, …)
 - Harbor support: browse projects and repositories via the Harbor API (artifact and
   pull counts, public/private, proxy cache projects), no admin rights needed
@@ -89,6 +94,18 @@ beagle localhost:5050/demo/app:v1.0.0     # open a manifest directly
 Many registries (Docker Hub, GHCR, …) do not expose the catalog API. In that
 case start beagle with a repository or use `:repo <name>`.
 
+### Tag columns
+
+| Column     | Source                                                        | Registries |
+| ---------- | ------------------------------------------------------------- | ---------- |
+| `SIGNED`   | Referrers (API or tag fallback), cosign `.sig` tags, Harbor accessories | all |
+| `ATTACHED` | Referrers and cosign `.att`/`.sbom` tags                      | all        |
+| `CREATED`  | `org.opencontainers.image.created` or the image config        | all without push times |
+| `PUSHED`, `PULLED` | Vendor API                                            | Harbor, Docker Hub |
+| `VULNS`    | Harbor scan overview, e.g. `C1 H3` (critical/high/...)        | Harbor     |
+
+`SIGNED` means a signature is attached; it is not verified yet.
+
 ### Harbor
 
 beagle detects Harbor automatically and starts in a project list instead of
@@ -108,6 +125,7 @@ users, so the header may show "version hidden".
 | `s`              | Go to the subject of a referrer                     |
 | `c`              | Copy the reference to the clipboard (OSC 52)        |
 | `a`              | Show/hide `sha256-*` tags in the tag list           |
+| `o`              | Sort tags: registry order / newest first / name     |
 | `/`              | Filter the current list                             |
 | `:`              | Command mode (`tab` completes)                      |
 | `esc` / `q`      | Back (clears an active filter first)                |
@@ -149,7 +167,8 @@ See [CLAUDE.md](CLAUDE.md) for architecture notes and conventions.
 ## Roadmap
 
 - Registry contexts like kubeconfig (`:ctx`), config file with skins and aliases
-- Signature verification (cosign, Notation) directly from the referrer tree
+- Signature verification (cosign, Notation) directly from the referrer tree and tag list
+- More vendor metadata providers (GHCR, ECR, ACR, Quay, GitLab)
 - SBOM viewer (packages, licenses) and vulnerability report summary
 - Provider adapters for listing repositories where `_catalog` is unavailable
   (GHCR, ECR, ACR)
