@@ -37,7 +37,7 @@ func newProjectsView() *projectsView {
 				if p.ProxyCache() {
 					kind = "proxy cache"
 				}
-				return []string{p.Name, access, kind, fmt.Sprint(p.RepoCount), timestamp(p.CreationTime, "-")}
+				return []string{p.Name, access, kind, fmt.Sprint(p.RepoCount), formatTime(p.CreationTime, "-")}
 			},
 			func(p harbor.Project) lipgloss.Style {
 				if p.ProxyCache() {
@@ -52,6 +52,8 @@ func newProjectsView() *projectsView {
 func (v *projectsView) crumb() string { return "projects" }
 func (v *projectsView) title() string { return "projects" }
 func (v *projectsView) count() int    { return v.list.count() }
+
+func (v *projectsView) refreshRows() { v.list.refresh() }
 
 func (v *projectsView) hints() []hint {
 	return []hint{{"enter", "repositories"}, hintOf(keys.Reload)}

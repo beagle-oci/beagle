@@ -355,7 +355,7 @@ func TestTagColumnsGeneric(t *testing.T) {
 		t.Fatalf("generic registry should not show vendor columns:\n%s", s)
 	}
 	v1 := row(t, s, "v1.0.0")
-	for _, want := range []string{"✓ cosign", "sbom att", timestamp(ocitest.Created, "-")} {
+	for _, want := range []string{"✓ cosign", "sbom att", formatTime(ocitest.Created, "-")} {
 		if !strings.Contains(v1, want) {
 			t.Fatalf("row %q lacks %q", v1, want)
 		}
@@ -379,12 +379,12 @@ func TestTagColumnsHarbor(t *testing.T) {
 		t.Fatalf("Harbor shows push times instead of build times:\n%s", s)
 	}
 	v1 := row(t, s, "v1.0.0")
-	for _, want := range []string{"✓ cosign", timestamp(v1Pushed, "-"), timestamp(v1Pulled, "-"), "C1 H2"} {
+	for _, want := range []string{"✓ cosign", formatTime(v1Pushed, "-"), formatTime(v1Pulled, "-"), "C1 H2"} {
 		if !strings.Contains(v1, want) {
 			t.Fatalf("row %q lacks %q", v1, want)
 		}
 	}
-	if latest := row(t, s, "latest"); !strings.Contains(latest, "never") || !strings.Contains(latest, timestamp(latestPushed, "-")) {
+	if latest := row(t, s, "latest"); !strings.Contains(latest, "never") || !strings.Contains(latest, formatTime(latestPushed, "-")) {
 		t.Fatalf("latest row = %q", latest)
 	}
 
@@ -409,9 +409,60 @@ func TestTagColumnsDockerHub(t *testing.T) {
 	if strings.Contains(s, "VULNS") {
 		t.Fatalf("Docker Hub provides no scan results:\n%s", s)
 	}
-	if v1 := row(t, s, "v1.0.0"); !strings.Contains(v1, timestamp(pulled, "-")) {
+	if v1 := row(t, s, "v1.0.0"); !strings.Contains(v1, formatTime(pulled, "-")) {
 		t.Fatalf("row %q lacks the pull time", v1)
 	}
+}
+
+func TestTimeToggle(t *testing.T) {
+	t.Cleanup(func() { relativeTimes = false })
+	r := newHarborRegistry()
+	pushed := time.Now().Add(-2 * time.Hour)
+	r.Harbor.PushTimes = map[string]time.Time{"demo/app:v1.0.0": pushed}
+	h := newHarness(t, r, Options{Repository: "demo/app"})
+
+	stamp := pushed.Local().Format(timeLayout)
+	if v1 := row(t, h.expect("timestamps", "PUSHED"), "v1.0.0"); !strings.Contains(v1, stamp) {
+		t.Fatalf("row %q lacks the push timestamp %q", v1, stamp)
+	}
+
+	h.key("t")
+	if v1 := row(t, h.expect("age", "Times shown as age"), "v1.0.0"); !strings.Contains(v1, "2h") || strings.Contains(v1, stamp) {
+		t.Fatalf("row %q should show the age", v1)
+	}
+
+	// Views further down the stack follow the setting.
+	updated := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC) // ocitest Harbor update_time
+	h.key("esc")
+	if repo := row(t, h.expect("repos-age", "UPDATED"), "│ demo/app "); !strings.Contains(repo, age(updated)) {
+		t.Fatalf("repository row %q should show the age", repo)
+	}
+
+	h.key(":")
+	h.typeText("time timestamp")
+	h.key("enter")
+	s := h.expect("repos-timestamps", "Times shown as timestamps")
+	if repo := row(t, s, "│ demo/app "); !strings.Contains(repo, updated.Local().Format(timeLayout)) {
+		t.Fatalf("repository row %q should show the timestamp", repo)
+	}
+
+	for _, c := range []struct{ cmd, want string }{
+		{"time", "Times shown as age"},
+		{"time age", "Times shown as age"},
+		{"time", "Times shown as timestamps"},
+		{"time soon", "usage: :time [age|timestamp]"},
+	} {
+		h.key(":")
+		h.typeText(c.cmd)
+		h.key("enter")
+		h.expect(c.cmd, c.want)
+	}
+	if relativeTimes {
+		t.Fatal("an invalid :time argument must not change the format")
+	}
+
+	h.key("?")
+	h.expect("help", "timestamps / age", ":time [age|timestamp]")
 }
 
 func TestLazyLoading(t *testing.T) {

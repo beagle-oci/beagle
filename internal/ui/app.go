@@ -241,6 +241,8 @@ func (a *App) handleKey(msg tea.KeyMsg) (tea.Cmd, bool) {
 	case key.Matches(msg, keys.Help):
 		a.help = true
 		return nil, false
+	case key.Matches(msg, keys.Time):
+		return a.setRelativeTimes(!relativeTimes), false
 	case key.Matches(msg, keys.Back):
 		if canFilter && f.filter() != "" {
 			f.setFilter("")
@@ -288,7 +290,7 @@ func (a *App) handleInput(msg tea.KeyMsg) tea.Cmd {
 	return cmd
 }
 
-var commandNames = []string{"repos", "repo ", "open ", "referrers ", "help", "quit"}
+var commandNames = []string{"repos", "repo ", "open ", "referrers ", "time", "time age", "time timestamp", "help", "quit"}
 
 func (a *App) suggestions() []string {
 	out := append([]string{}, commandNames...)
@@ -359,6 +361,16 @@ func (a *App) runCommand(line string) tea.Cmd {
 			return flashErr(err)
 		}
 		return a.pushView(newReferrersView(repo, ref, nil))
+	case "time", "times":
+		switch arg {
+		case "":
+			return a.setRelativeTimes(!relativeTimes)
+		case "age", "relative":
+			return a.setRelativeTimes(true)
+		case "timestamp", "timestamps", "absolute":
+			return a.setRelativeTimes(false)
+		}
+		return flash(flashError, "usage: :time [age|timestamp]")
 	}
 	// Bare references are a shortcut: ":demo/app" or ":demo/app:v1".
 	if arg == "" && strings.ContainsAny(cmd, "/:@") {
@@ -369,6 +381,20 @@ func (a *App) runCommand(line string) tea.Cmd {
 		return a.pushView(newManifestView(repo, ref, nil))
 	}
 	return flash(flashError, "unknown command %q, press ? for help", cmd)
+}
+
+// setRelativeTimes switches all time columns between timestamps and ages.
+func (a *App) setRelativeTimes(on bool) tea.Cmd {
+	relativeTimes = on
+	for _, v := range a.stack {
+		if r, ok := v.(rowRefresher); ok {
+			r.refreshRows()
+		}
+	}
+	if on {
+		return flash(flashInfo, "Times shown as age")
+	}
+	return flash(flashInfo, "Times shown as timestamps")
 }
 
 // splitReference parses repo:tag or repo@digest, optionally prefixed with

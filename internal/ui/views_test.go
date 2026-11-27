@@ -225,16 +225,40 @@ func TestFormatHelpers(t *testing.T) {
 		}
 	}
 	at := time.Date(2026, 11, 27, 14, 2, 31, 0, time.Local)
-	if got := timestamp(at, "-"); got != "2026-11-27 14:02:31" {
+	if got := formatTime(at, "-"); got != "2026-11-27 14:02:31" {
 		t.Errorf("timestamp = %q", got)
 	}
-	if got := timestamp(time.Time{}, "never"); got != "never" {
+	if got := formatTime(time.Time{}, "never"); got != "never" {
 		t.Errorf("zero time = %q", got)
 	}
 	utc := time.Date(2026, 11, 27, 13, 2, 31, 500, time.UTC)
 	if got, want := annotationTime("2026-11-27T13:02:31.0000005Z"), utc.Local().Format(timeLayout); got != want {
 		t.Errorf("annotationTime = %q, want %q", got, want)
 	}
+	relativeTimes = true
+	t.Cleanup(func() { relativeTimes = false })
+	now := time.Now()
+	for d, want := range map[time.Duration]string{
+		30 * time.Second:     "30s",
+		5 * time.Minute:      "5m",
+		3 * time.Hour:        "3h",
+		10 * 24 * time.Hour:  "10d",
+		800 * 24 * time.Hour: "2y",
+	} {
+		if got := formatTime(now.Add(-d), "-"); got != want {
+			t.Errorf("age(-%v) = %q, want %q", d, got, want)
+		}
+	}
+	if got := formatTime(now.Add(48*time.Hour), "-"); got != now.Add(48*time.Hour).Local().Format("2006-01-02") {
+		t.Errorf("future time = %q", got)
+	}
+	if got := annotationTime(now.Add(-5 * time.Minute).Format(time.RFC3339)); got != "5m" {
+		t.Errorf("annotation age = %q", got)
+	}
+	if got := formatTime(time.Time{}, "never"); got != "never" {
+		t.Errorf("zero time as age = %q", got)
+	}
+	relativeTimes = false
 	if got := annotationTime("not a time"); got != "not a time" {
 		t.Errorf("invalid time = %q", got)
 	}

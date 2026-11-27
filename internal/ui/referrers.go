@@ -98,6 +98,8 @@ func (v *referrersView) count() int {
 	return v.tree.Count()
 }
 
+func (v *referrersView) refreshRows() { v.list.refresh() }
+
 func (v *referrersView) hints() []hint {
 	return []hint{{"enter", "manifest"}, hintOf(keys.Raw), hintOf(keys.Copy), hintOf(keys.Reload)}
 }

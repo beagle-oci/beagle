@@ -22,7 +22,7 @@ func helpSections() []helpSection {
 		return out
 	}
 	return []helpSection{
-		{"GENERAL", b(keys.Command, keys.Filter, keys.Help, keys.Back, keys.Quit, keys.ForceQuit, keys.Reload)},
+		{"GENERAL", b(keys.Command, keys.Filter, keys.Help, keys.Back, keys.Quit, keys.ForceQuit, keys.Reload, keys.Time)},
 		{"NAVIGATION", b(keys.Up, keys.Down, keys.PageUp, keys.PageDown, keys.Top, keys.Bottom)},
 		{"RESOURCE", b(keys.Open, keys.Referrers, keys.Raw, keys.Subject, keys.Copy, keys.ToggleAll, keys.Sort)},
 		{"COMMANDS", []hint{
@@ -32,6 +32,7 @@ func helpSections() []helpSection {
 			{":repo <name>", "open a repository"},
 			{":open <repo:tag|@digest>", "open a manifest"},
 			{":referrers <ref>", "referrer tree of a manifest"},
+			{":time [age|timestamp]", "switch the time format"},
 			{":q", "quit"},
 		}},
 	}

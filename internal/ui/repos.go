@@ -55,7 +55,7 @@ func newProjectReposView(project string) *reposView {
 		list: newList(
 			[]column{{title: "NAME", flex: 1}, {title: "ARTIFACTS", max: 9, right: true}, {title: "PULLS", max: 9, right: true}, {title: "UPDATED", max: 19}},
 			func(r repoItem) []string {
-				return []string{r.name, fmt.Sprint(r.artifacts), fmt.Sprint(r.pulls), timestamp(r.updated, "-")}
+				return []string{r.name, fmt.Sprint(r.artifacts), fmt.Sprint(r.pulls), formatTime(r.updated, "-")}
 			}, nil),
 	}
 }
@@ -69,6 +69,8 @@ func (v *reposView) count() int {
 	}
 	return v.list.count()
 }
+
+func (v *reposView) refreshRows() { v.list.refresh() }
 
 func (v *reposView) hints() []hint {
 	return []hint{{"enter", "tags"}, hintOf(keys.Reload)}
