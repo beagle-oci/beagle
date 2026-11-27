@@ -6,7 +6,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/beagle-oci/beagle/internal/oci"
@@ -90,8 +89,11 @@ func (v *referrersView) crumb() string   { return "referrers" }
 func (v *referrersView) title() string   { return "referrers" }
 func (v *referrersView) subject() string { return refString(v.repo, v.reference) }
 func (v *referrersView) count() int {
-	if v.tree == nil {
+	switch {
+	case v.tree == nil:
 		return -1
+	case v.list.filter != "":
+		return v.list.count()
 	}
 	return v.tree.Count()
 }
@@ -174,7 +176,7 @@ func (v *referrersView) handleKey(e *env, msg tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 		ref := fmt.Sprintf("%s/%s@%s", e.client.Host(), v.repo, d.Digest)
-		termenv.Copy(ref)
+		copyToClipboard(ref)
 		return flash(flashInfo, "Copied %s", ref)
 	default:
 		v.list.update(msg)

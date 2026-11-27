@@ -160,7 +160,8 @@ The dev registries use ports 5050/5051 because macOS' AirPlay Receiver
 occupies port 5000 and answers every request with `403 Forbidden`.
 
 `make test` runs the unit tests (including UI tests against an in-memory
-registry), `make lint` runs `go vet` and checks formatting.
+registry), `make cover` prints the coverage per package, `make lint` runs
+`go vet` and checks formatting.
 
 See [CLAUDE.md](CLAUDE.md) for architecture notes and conventions.
 

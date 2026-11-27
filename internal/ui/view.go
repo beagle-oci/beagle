@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/muesli/termenv"
 	"github.com/opencontainers/go-digest"
 
 	"github.com/beagle-oci/beagle/internal/harbor"
@@ -115,6 +116,10 @@ func flash(level flashLevel, format string, args ...any) tea.Cmd {
 func flashErr(err error) tea.Cmd {
 	return flash(flashError, "%s", err)
 }
+
+// copyToClipboard copies text via OSC 52, which works in most terminals and
+// over SSH. Tests replace it.
+var copyToClipboard = func(s string) { termenv.Copy(s) }
 
 // Formatting helpers.
 

@@ -174,8 +174,12 @@ func (c *Client) Ping(ctx context.Context) error {
 	return c.registry.Ping(ctx)
 }
 
-// IsUnauthorized reports whether err is an HTTP 401 or 403 from the registry.
+// IsUnauthorized reports whether err means the registry wants credentials:
+// an HTTP 401 or 403, or a basic auth challenge without stored credentials.
 func IsUnauthorized(err error) bool {
+	if errors.Is(err, auth.ErrBasicCredentialNotFound) {
+		return true
+	}
 	var resp *errcode.ErrorResponse
 	return errors.As(err, &resp) && (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden)
 }

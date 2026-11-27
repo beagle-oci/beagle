@@ -291,11 +291,4 @@ func (l *list[T]) selected() (T, bool) {
 	return l.items[l.visible[l.cursor]], true
 }
 
-func (l *list[T]) selectedIndex() int {
-	if l.cursor < 0 || l.cursor >= len(l.visible) {
-		return -1
-	}
-	return l.visible[l.cursor]
-}
-
 func (l *list[T]) count() int { return len(l.visible) }

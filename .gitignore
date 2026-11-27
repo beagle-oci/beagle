@@ -6,7 +6,8 @@
 # Test and coverage artifacts
 *.test
 *.out
-coverage.*
+/coverage.out
+/coverage.html
 
 # Editor and OS files
 .idea/

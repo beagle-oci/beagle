@@ -5,7 +5,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 REGISTRY ?= localhost:5050
 OLAREG   := github.com/olareg/olareg/cmd/olareg@v0.2.2
 
-.PHONY: all build install run test test-race lint golangci fmt tidy registry registry-noreferrers seed clean
+.PHONY: all build install run test test-race cover cover-html lint golangci fmt tidy registry registry-noreferrers seed clean
 
 all: lint test build
 
@@ -23,6 +23,12 @@ test: ## Run unit tests
 
 test-race: ## Run unit tests with the race detector
 	go test -race -count=1 ./...
+
+cover: ## Run tests and print coverage per package (profile in coverage.out)
+	sh hack/coverage.sh
+
+cover-html: cover ## Open the coverage report in the browser
+	go tool cover -html=coverage.out
 
 lint: ## go vet + gofmt check
 	go vet ./...
@@ -47,4 +53,4 @@ seed: ## Push demo content (images, signatures, SBOMs, charts) to $(REGISTRY)
 	go run ./hack/seed $(REGISTRY)
 
 clean:
-	rm -rf bin/
+	rm -rf bin/ dist/ coverage.out

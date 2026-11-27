@@ -25,5 +25,5 @@ jobs:
       - name: Format
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
 
-      - name: Test
-        run: go test ./...
+      - name: Test with coverage
+        run: sh hack/coverage.sh markdown >> "$GITHUB_STEP_SUMMARY"

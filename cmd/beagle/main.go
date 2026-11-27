@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -38,14 +39,28 @@ Flags:
 `
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	opts, err := setup(os.Args[1:], os.Stdout, os.Stderr)
+	if errors.Is(err, errDone) {
+		return
+	}
+	if err == nil {
+		_, err = tea.NewProgram(ui.New(opts), tea.WithAltScreen()).Run()
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "beagle:", err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
+// errDone tells main that setup already handled the invocation (--help,
+// --version) and there is nothing to start.
+var errDone = errors.New("done")
+
+// setup parses the arguments, connects to the registry and returns the UI
+// options. It does everything except starting the TUI, so it can be tested.
+func setup(args []string, stdout, stderr io.Writer) (ui.Options, error) {
 	fs := flag.NewFlagSet("beagle", flag.ContinueOnError)
+	fs.SetOutput(stderr)
 	fs.Usage = func() {
 		fmt.Fprint(fs.Output(), usage)
 		fs.PrintDefaults()
@@ -57,17 +72,17 @@ func run(args []string) error {
 	showVersion := fs.Bool("version", false, "print the version and exit")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
-			return nil
+			return ui.Options{}, errDone
 		}
-		return err
+		return ui.Options{}, err
 	}
 	if *showVersion {
-		fmt.Println("beagle", version)
-		return nil
+		fmt.Fprintln(stdout, "beagle", version)
+		return ui.Options{}, errDone
 	}
 	if fs.NArg() != 1 {
 		fs.Usage()
-		return errors.New("expected exactly one registry argument")
+		return ui.Options{}, errors.New("expected exactly one registry argument")
 	}
 
 	host, repo, ref := parseTarget(fs.Arg(0))
@@ -79,16 +94,16 @@ func run(args []string) error {
 		UserAgent: "beagle/" + version,
 	})
 	if err != nil {
-		return err
+		return ui.Options{}, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := client.Ping(ctx); err != nil {
 		if oci.IsUnauthorized(err) {
-			return fmt.Errorf("%s requires authentication, run 'docker login %s' (or 'oras login') first: %w", host, host, err)
+			return ui.Options{}, fmt.Errorf("%s requires authentication, run 'docker login %s' (or 'oras login') first: %w", host, host, err)
 		}
-		return fmt.Errorf("cannot reach registry %s: %w", host, err)
+		return ui.Options{}, fmt.Errorf("cannot reach registry %s: %w", host, err)
 	}
 
 	var hc *harbor.Client
@@ -96,20 +111,28 @@ func run(args []string) error {
 		hc = detectHarbor(ctx, client)
 	}
 
-	// Vendor APIs add push/pull times and scan results to the tag list.
-	var provider meta.Provider
+	return ui.Options{
+		Client:     client,
+		Harbor:     hc,
+		Metadata:   selectProvider(client, hc),
+		Version:    version,
+		Repository: repo,
+		Reference:  ref,
+	}, nil
+}
+
+// selectProvider picks the vendor API that adds push/pull times and scan
+// results to the tag list, or nil for registries without one.
+func selectProvider(client *oci.Client, hc *harbor.Client) meta.Provider {
 	switch {
 	case hc != nil:
-		provider = hc
+		return hc
 	case client.Host() == "docker.io":
 		hub := dockerhub.New(client.HTTPClient())
 		hub.UserAgent = "beagle/" + version
-		provider = hub
+		return hub
 	}
-
-	app := ui.New(ui.Options{Client: client, Harbor: hc, Metadata: provider, Version: version, Repository: repo, Reference: ref})
-	_, err = tea.NewProgram(app, tea.WithAltScreen()).Run()
-	return err
+	return nil
 }
 
 // detectHarbor returns a Harbor API client if the registry is Harbor, and

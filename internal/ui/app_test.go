@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,8 +28,9 @@ import (
 // resulting messages back until the app is idle. Commands that do not finish
 // quickly (timers such as the flash timeout) are dropped.
 type harness struct {
-	t   *testing.T
-	app *App
+	t      *testing.T
+	app    *App
+	copied string
 }
 
 const cmdTimeout = 150 * time.Millisecond
@@ -67,6 +69,12 @@ func newHarnessWithLogin(t *testing.T, r *ocitest.Registry, opts Options, user, 
 		}
 	}
 	h := &harness{t: t, app: New(opts)}
+	orig := copyToClipboard
+	copyToClipboard = func(s string) { h.copied = s }
+	t.Cleanup(func() { copyToClipboard = orig })
+	// A blinking cursor schedules timers on every key press, which the
+	// harness would have to wait out.
+	h.app.input.Cursor.SetMode(cursor.CursorStatic)
 	h.send(tea.WindowSizeMsg{Width: 160, Height: 45})
 	h.process(h.app.Init())
 	return h

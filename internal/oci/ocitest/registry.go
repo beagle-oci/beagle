@@ -29,6 +29,10 @@ type Registry struct {
 	Catalog bool
 	// Harbor enables a fake Harbor v2.0 API next to the registry API.
 	Harbor *HarborAPI
+	// Username and Password, if set, are required (basic auth) for every
+	// registry API request.
+	Username string
+	Password string
 
 	mu    sync.Mutex
 	repos map[string]*repo
@@ -176,6 +180,14 @@ func (r *Registry) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if strings.HasPrefix(req.URL.Path, "/api/v2.0/") && r.Harbor != nil {
 		r.serveHarbor(w, req)
 		return
+	}
+
+	if r.Username != "" {
+		if user, pass, ok := req.BasicAuth(); !ok || user != r.Username || pass != r.Password {
+			w.Header().Set("WWW-Authenticate", `Basic realm="ocitest"`)
+			writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
+			return
+		}
 	}
 
 	path := strings.TrimPrefix(req.URL.Path, "/v2/")

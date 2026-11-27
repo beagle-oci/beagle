@@ -35,6 +35,7 @@ commit messages, PR descriptions and UI text.
 make build                 # bin/beagle
 make test                  # unit + UI tests (no network needed)
 make test-race             # with the race detector
+make cover                 # coverage per package (hack/coverage.sh), make cover-html for details
 make lint                  # go vet + gofmt check (make golangci for golangci-lint)
 make registry              # in-memory olareg registry on :5050 (referrers API)
 make registry-noreferrers  # olareg on :5051 without referrers API (tag fallback)
@@ -124,6 +125,13 @@ install.sh           curl | sh installer for GitHub release binaries
 - UI tests (`internal/ui/app_test.go`) drive the real `App` through a harness
   that executes commands synchronously and asserts on the rendered screen.
   Set `BEAGLE_SNAPSHOT_DIR=/some/dir` to dump colored screens (`*.ansi`).
+  The harness switches the prompt cursor to static (no blink timers) and
+  replaces `copyToClipboard`, so copies can be asserted via `h.copied`.
+- `cmd/beagle` keeps everything except starting the TUI in `setup`, so CLI
+  startup (flags, ping, auth errors, Harbor detection) is tested too.
+- Coverage: `make cover` / CI summary. It counts cross-package coverage and
+  excludes `ocitest` and `hack/`. Keep it at or above ~90 %; new code comes
+  with tests.
 - For manual end-to-end checks use `make registry` + `make seed` (or
   `registry-noreferrers` on :5051) and run beagle against them.
 

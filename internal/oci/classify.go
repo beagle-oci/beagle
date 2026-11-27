@@ -62,16 +62,6 @@ func (k Kind) String() string {
 	}
 }
 
-// IsSupplyChain reports whether the kind is typically attached to another
-// manifest (signatures, SBOMs, attestations, scan results).
-func (k Kind) IsSupplyChain() bool {
-	switch k {
-	case KindSignature, KindAttestation, KindSBOM, KindVulnReport, KindVEX, KindReferrersIndex:
-		return true
-	}
-	return false
-}
-
 // ClassifyDescriptor classifies a manifest from its descriptor alone, as
 // returned by the referrers API or listed in an index.
 func ClassifyDescriptor(d ocispec.Descriptor) Kind {

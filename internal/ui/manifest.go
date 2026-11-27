@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/beagle-oci/beagle/internal/oci"
@@ -159,7 +158,7 @@ func (v *manifestView) handleKey(e *env, msg tea.KeyMsg) tea.Cmd {
 		return flash(flashWarn, "This manifest has no subject")
 	case key.Matches(msg, keys.Copy):
 		ref := fmt.Sprintf("%s/%s@%s", e.client.Host(), v.repo, v.manifest.Descriptor.Digest)
-		termenv.Copy(ref)
+		copyToClipboard(ref)
 		return flash(flashInfo, "Copied %s", ref)
 	case key.Matches(msg, keys.Open):
 		sel, ok := v.list.selected()

@@ -12,7 +12,6 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/beagle-oci/beagle/internal/oci"
@@ -124,7 +123,7 @@ func (v *rawView) update(e *env, msg tea.Msg) tea.Cmd {
 		case key.Matches(msg, keys.Reload):
 			return v.init(e)
 		case key.Matches(msg, keys.Copy):
-			termenv.Copy(v.plain)
+			copyToClipboard(v.plain)
 			return flash(flashInfo, "Copied %s to the clipboard", v.name)
 		case key.Matches(msg, keys.Top):
 			v.viewport.GotoTop()
