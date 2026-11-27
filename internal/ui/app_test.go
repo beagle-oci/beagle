@@ -200,7 +200,16 @@ func TestNavigation(t *testing.T) {
 		"linux/amd64", "linux/arm64", f.Index.Digest.String())
 
 	h.key("enter")
-	h.expect("image", "config", "layer 1", "application/vnd.oci.image.layer.v1.tar+gzip")
+	s := h.expect("image", "config", "layer 1", "application/vnd.oci.image.layer.v1.tar+gzip")
+	if strings.Contains(s, "unknown") {
+		t.Fatalf("image config and layers should have a kind:\n%s", s)
+	}
+	if f := strings.Fields(row(t, s, ocispec.MediaTypeImageConfig)); f[2] != "config" {
+		t.Fatalf("config row kind = %q", f[2])
+	}
+	if f := strings.Fields(row(t, s, "layer 1")); f[3] != "layer" {
+		t.Fatalf("layer row kind = %q", f[3])
+	}
 
 	h.key("enter")
 	h.expect("config", "blob(config", `"architecture"`, `"amd64"`)
