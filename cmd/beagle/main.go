@@ -17,6 +17,7 @@ import (
 	"github.com/beagle-oci/beagle/internal/harbor"
 	"github.com/beagle-oci/beagle/internal/meta"
 	"github.com/beagle-oci/beagle/internal/oci"
+	"github.com/beagle-oci/beagle/internal/sigverify"
 	"github.com/beagle-oci/beagle/internal/ui"
 )
 
@@ -69,6 +70,8 @@ func setup(args []string, stdout, stderr io.Writer) (ui.Options, error) {
 	forceHTTPS := fs.Bool("https", false, "force HTTPS, even for localhost")
 	insecure := fs.Bool("insecure", false, "skip TLS certificate verification")
 	noHarbor := fs.Bool("no-harbor", false, "do not use the Harbor API, even if the registry is Harbor")
+	noVerify := fs.Bool("no-verify", false, "do not verify cosign signatures")
+	sigstoreRoot := fs.String("sigstore-root", "", "verify against this `trusted_root.json` instead of the Sigstore public-good instance")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -83,6 +86,11 @@ func setup(args []string, stdout, stderr io.Writer) (ui.Options, error) {
 	if fs.NArg() != 1 {
 		fs.Usage()
 		return ui.Options{}, errors.New("expected exactly one registry argument")
+	}
+
+	verifier, err := newVerifier(*noVerify, *sigstoreRoot)
+	if err != nil {
+		return ui.Options{}, err
 	}
 
 	host, repo, ref := parseTarget(fs.Arg(0))
@@ -115,10 +123,26 @@ func setup(args []string, stdout, stderr io.Writer) (ui.Options, error) {
 		Client:     client,
 		Harbor:     hc,
 		Metadata:   selectProvider(client, hc),
+		Verifier:   verifier,
 		Version:    version,
 		Repository: repo,
 		Reference:  ref,
 	}, nil
+}
+
+// newVerifier sets up cosign signature verification: against the Sigstore
+// public-good instance by default, a trusted_root.json if given, or not at
+// all.
+func newVerifier(disabled bool, trustedRoot string) (*sigverify.Verifier, error) {
+	switch {
+	case disabled && trustedRoot != "":
+		return nil, errors.New("--no-verify and --sigstore-root exclude each other")
+	case disabled:
+		return nil, nil
+	case trustedRoot != "":
+		return sigverify.NewFromFile(trustedRoot)
+	}
+	return sigverify.NewPublicGood(), nil
 }
 
 // selectProvider picks the vendor API that adds push/pull times and scan

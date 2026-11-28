@@ -14,6 +14,7 @@ import (
 
 	"github.com/beagle-oci/beagle/internal/meta"
 	"github.com/beagle-oci/beagle/internal/oci"
+	"github.com/beagle-oci/beagle/internal/sigverify"
 )
 
 const (
@@ -58,6 +59,41 @@ type tagItem struct {
 
 	// meta comes from a vendor API (Harbor, Docker Hub) when available.
 	meta *meta.TagInfo
+
+	// verify is the verification outcome of the attached signatures.
+	verify      *sigverify.Result
+	verifyState loadState
+}
+
+// signatureMark shows how far the signatures check out: ✓ verified,
+// ✗ invalid, ? not verifiable, … being verified, • not verified.
+func (t *tagItem) signatureMark() string {
+	switch {
+	case t.verify != nil:
+		switch t.verify.Status {
+		case sigverify.Verified:
+			return "✓"
+		case sigverify.Invalid:
+			return "✗"
+		}
+		return "?"
+	case t.verifyState == stateLoading:
+		return "…"
+	}
+	return "•"
+}
+
+// verificationStyle colors a verification result.
+func verificationStyle(r *sigverify.Result) *lipgloss.Style {
+	switch {
+	case r == nil:
+		return nil
+	case r.Status == sigverify.Verified:
+		return &styleSigned
+	case r.Status == sigverify.Invalid:
+		return &styleCritical
+	}
+	return &styleHigh
 }
 
 func (t *tagItem) resolved() bool { return t.state == stateDone && t.err == nil }
@@ -152,9 +188,16 @@ type tagMetaMsg struct {
 	err         error
 }
 
+type tagVerifiedMsg struct {
+	viewID, gen int
+	item        *tagItem
+	result      sigverify.Result
+}
+
 func (m tagsLoadedMsg) target() int  { return m.viewID }
 func (m tagResolvedMsg) target() int { return m.viewID }
 func (m tagMetaMsg) target() int     { return m.viewID }
+func (m tagVerifiedMsg) target() int { return m.viewID }
 
 func newTagsView(repo string) *tagsView {
 	v := &tagsView{repo: repo, showAttached: true, sem: make(chan struct{}, resolveConcurrency)}
@@ -220,7 +263,7 @@ func (v *tagsView) setColumns(caps meta.Capabilities) {
 					return ""
 				}
 				if sigs := t.signatures(); len(sigs) > 0 {
-					return "✓ " + strings.Join(sigs, ",")
+					return t.signatureMark() + " " + strings.Join(sigs, ",")
 				}
 				switch {
 				case t.attachErr != nil:
@@ -231,10 +274,10 @@ func (v *tagsView) setColumns(caps meta.Capabilities) {
 				return "-"
 			},
 			style: func(t *tagItem) *lipgloss.Style {
-				if len(t.signatures()) > 0 {
-					return &styleSigned
+				if t.subject != nil || len(t.signatures()) == 0 {
+					return nil
 				}
-				return nil
+				return verificationStyle(t.verify)
 			},
 		},
 		{column: column{title: "ATTACHED", max: 16}, value: func(t *tagItem) string {
@@ -381,6 +424,14 @@ func (v *tagsView) update(e *env, msg tea.Msg) tea.Cmd {
 			it.kind, it.info = msg.kind, msg.info
 		}
 		it.attach, it.attachErr, it.created = msg.attach, msg.attachErr, msg.created
+		v.list.refresh()
+		return v.verify(e, it)
+	case tagVerifiedMsg:
+		if msg.gen != v.gen {
+			return nil
+		}
+		v.pending--
+		msg.item.verify, msg.item.verifyState = &msg.result, stateDone
 		v.list.refresh()
 	case tagMetaMsg:
 		if msg.gen != v.gen {
@@ -542,7 +593,7 @@ func (v *tagsView) loadVisible(e *env) tea.Cmd {
 func (v *tagsView) resolve(e *env, it *tagItem) tea.Cmd {
 	id, gen, repo, sem, names := v.id(), v.gen, v.repo, v.sem, v.names
 	wantCreated := !v.caps.Pushed
-	dockerHub := e.client.Host() == "docker.io"
+	dockerHub := isDockerHub(e)
 	return func() tea.Msg {
 		sem <- struct{}{}
 		defer func() { <-sem }()
@@ -571,6 +622,32 @@ func (v *tagsView) resolve(e *env, it *tagItem) tea.Cmd {
 			res.created, _ = e.client.Created(ctx, repo, m)
 		}
 		return res
+	}
+}
+
+// isDockerHub reports whether beagle talks to Docker Hub, where manifest
+// GETs count against the pull rate limit.
+func isDockerHub(e *env) bool { return e.client.Host() == "docker.io" }
+
+// verify starts verifying the signatures attached to a resolved tag. On
+// Docker Hub it waits until the user opens the manifest, because fetching
+// signature manifests counts against the pull rate limit.
+func (v *tagsView) verify(e *env, it *tagItem) tea.Cmd {
+	if e.verifier == nil || isDockerHub(e) || it.err != nil || it.attach == nil ||
+		len(it.attach.SignatureRefs) == 0 || it.verifyState != stateIdle {
+		return nil
+	}
+	it.verifyState = stateLoading
+	v.pending++
+	id, gen, repo, sem := v.id(), v.gen, v.repo, v.sem
+	refs, subject := it.attach.SignatureRefs, it.desc.Digest
+	return func() tea.Msg {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+		ctx, cancel := e.timeout()
+		defer cancel()
+		results := e.verifier.Signatures(ctx, e.client, repo, subject, refs)
+		return tagVerifiedMsg{viewID: id, gen: gen, item: it, result: sigverify.Best(results)}
 	}
 }
 

@@ -6,7 +6,7 @@
 #
 # Test output goes to stderr, the summary to stdout. Coverage counts code
 # exercised by any test (e.g. internal/oci via the UI tests); test helpers
-# (ocitest) and dev tools (hack/) are excluded. The profile is written to
+# (ocitest, sigtest) and dev tools (hack/) are excluded. The profile is written to
 # $COVERPROFILE (default coverage.out) for `go tool cover -html`.
 #
 # If $COVERAGE_BADGE is set, a shields.io endpoint badge (JSON) with the total
@@ -18,7 +18,7 @@ profile="${COVERPROFILE:-coverage.out}"
 module="$(go list -m)"
 
 go test -count=1 -coverpkg=./... -coverprofile="$profile.raw" ./... 1>&2
-grep -v -E '/(hack|ocitest)/' "$profile.raw" >"$profile"
+grep -v -E '/(hack|ocitest|sigtest)/' "$profile.raw" >"$profile"
 rm -f "$profile.raw"
 
 summary=$(awk -v module="$module/" '

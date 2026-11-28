@@ -364,7 +364,7 @@ func TestTagColumnsGeneric(t *testing.T) {
 		t.Fatalf("generic registry should not show vendor columns:\n%s", s)
 	}
 	v1 := row(t, s, "v1.0.0")
-	for _, want := range []string{"✓ cosign", "sbom att", formatTime(ocitest.Created, "-")} {
+	for _, want := range []string{"• cosign", "sbom att", formatTime(ocitest.Created, "-")} {
 		if !strings.Contains(v1, want) {
 			t.Fatalf("row %q lacks %q", v1, want)
 		}
@@ -388,7 +388,7 @@ func TestTagColumnsHarbor(t *testing.T) {
 		t.Fatalf("Harbor shows push times instead of build times:\n%s", s)
 	}
 	v1 := row(t, s, "v1.0.0")
-	for _, want := range []string{"✓ cosign", formatTime(v1Pushed, "-"), formatTime(v1Pulled, "-"), "C1 H2"} {
+	for _, want := range []string{"• cosign", formatTime(v1Pushed, "-"), formatTime(v1Pulled, "-"), "C1 H2"} {
 		if !strings.Contains(v1, want) {
 			t.Fatalf("row %q lacks %q", v1, want)
 		}

@@ -19,8 +19,29 @@ const (
 type Attachments struct {
 	// Signatures lists the signature formats found, e.g. "cosign".
 	Signatures []string
+	// SignatureRefs points at the signature manifests, for verification.
+	SignatureRefs []SignatureRef
 	// Kinds counts the other attached artifacts (SBOMs, attestations, ...).
 	Kinds map[Kind]int
+}
+
+// SignatureRef points at a signature manifest attached to a subject.
+type SignatureRef struct {
+	// Format is FormatCosign or FormatNotation.
+	Format string
+	// Descriptor describes a referrer. Its digest is unset for cosign
+	// legacy signatures, which are found by Tag.
+	Descriptor ocispec.Descriptor
+	// Tag is the sha256-<hex>.sig tag of a cosign legacy signature.
+	Tag string
+}
+
+// Reference returns how to fetch the signature manifest: its tag or digest.
+func (r SignatureRef) Reference() string {
+	if r.Tag != "" {
+		return r.Tag
+	}
+	return r.Descriptor.Digest.String()
 }
 
 // Signed reports whether at least one signature is attached.
@@ -67,10 +88,17 @@ func (c *Client) Attachments(ctx context.Context, repo string, desc ocispec.Desc
 	var a Attachments
 	for _, st := range CosignTagsFor(desc.Digest, tags) {
 		a.add(st.Kind, FormatCosign)
+		if st.Kind == KindSignature {
+			a.SignatureRefs = append(a.SignatureRefs, SignatureRef{Format: FormatCosign, Tag: st.Tag})
+		}
 	}
 	refs, err := c.Referrers(ctx, repo, desc)
 	for _, r := range refs {
-		a.add(ClassifyDescriptor(r), SignatureFormat(r))
+		k, format := ClassifyDescriptor(r), SignatureFormat(r)
+		a.add(k, format)
+		if k == KindSignature {
+			a.SignatureRefs = append(a.SignatureRefs, SignatureRef{Format: format, Descriptor: r})
+		}
 	}
 	return a, err
 }

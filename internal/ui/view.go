@@ -13,6 +13,7 @@ import (
 	"github.com/beagle-oci/beagle/internal/harbor"
 	"github.com/beagle-oci/beagle/internal/meta"
 	"github.com/beagle-oci/beagle/internal/oci"
+	"github.com/beagle-oci/beagle/internal/sigverify"
 )
 
 // requestTimeout bounds every registry call issued by a view.
@@ -54,6 +55,8 @@ type env struct {
 	harbor *harbor.Client
 	// meta provides vendor tag metadata (push/pull times, scans). Optional.
 	meta meta.Provider
+	// verifier verifies cosign signatures. Optional.
+	verifier *sigverify.Verifier
 }
 
 // lazyLoader views load data for what is currently visible. The app calls

@@ -117,6 +117,19 @@ func (r *Registry) Tag(repoName, tag string, d digest.Digest) {
 	r.repo(repoName).tags[tag] = d
 }
 
+// Resolve returns the digest a tag points at and fails the test if the tag
+// does not exist.
+func (r *Registry) Resolve(t testing.TB, repoName, tag string) digest.Digest {
+	t.Helper()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	d, ok := r.repo(repoName).tags[tag]
+	if !ok {
+		t.Fatalf("tag %s:%s does not exist", repoName, tag)
+	}
+	return d
+}
+
 type subjectManifest struct {
 	ArtifactType string              `json:"artifactType"`
 	Config       *ocispec.Descriptor `json:"config"`

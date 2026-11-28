@@ -41,7 +41,11 @@ make registry              # in-memory olareg registry on :5050 (referrers API)
 make registry-noreferrers  # olareg on :5051 without referrers API (tag fallback)
 make seed                  # push demo content to localhost:5050 (REGISTRY=... to override)
 make run                   # build and run against localhost:5050
+make run-demo              # open demo/app, trusting the demo signatures (bin/demo-trusted-root.json)
 ```
+
+olareg has no catalog API (`/v2/_catalog` answers 404), so beagle starts on
+the "no catalog" screen there; open repositories with `:repo` or a target.
 
 Do not use port 5000 for local registries: on macOS the AirPlay Receiver
 listens there and answers with `403 Forbidden`.
@@ -62,13 +66,16 @@ internal/oci/        registry access (wraps oras-go v2), no UI code
   classify.go        Kind classification of manifests (signature, sbom, ...) and blobs (config, layer, empty)
   subjecttag.go      cosign legacy tags and referrers tag schema (sha256-<hex>[.sig])
   tree.go            ReferrerTree: recursive referrers + cosign tags + index platforms
-  details.go         Attachments (signature formats, attached kinds) and Created (build time)
+  details.go         Attachments (signature formats and refs, attached kinds) and Created (build time)
   ocitest/           in-memory registry (+ fake Harbor API) and fixtures for tests
+internal/sigverify/  cosign signature verification with sigstore-go (bundles, legacy .sig tags)
+  sigtest/           virtual Sigstore instance that signs test and demo content
 internal/ui/         Bubble Tea UI
   app.go             root model: view stack, command/filter prompt, header, status
   view.go            view interface, shared messages, formatting helpers
   table.go           table widget with per-row styles + filterable list[T]
   projects.go repos.go tags.go manifest.go referrers.go raw.go   the screens
+  verify.go          signature verification in the manifest view
   layout.go help.go styles.go keys.go
 hack/seed/           dev tool that pushes demo content to a registry
 install.sh           curl | sh installer for GitHub release binaries
@@ -122,6 +129,20 @@ install.sh           curl | sh installer for GitHub release binaries
   the whole stack re-renders when the format changes.
 - Rows are colored by `oci.Kind` (`kindStyle` in `styles.go`), the way k9s
   colors rows by status.
+- Signature verification (`internal/sigverify`) wraps sigstore-go. Image
+  signatures from cosign v2 (new bundle format) and v3 are DSSE bundles with
+  the `https://sigstore.dev/cosign/sign/v1` predicate whose statement subject
+  is the image digest; older ones are `.sig` tags with a simple signing payload
+  and the certificate and Rekor bundle in layer annotations (turned into a
+  v0.1 bundle). A verified result reports the identity; beagle does not judge
+  it. The trusted root is loaded lazily (TUF, cached in `~/.sigstore/root`) or
+  from `--sigstore-root`; SCTs are required whenever it lists CT logs.
+  `ui.Options.Verifier == nil` (`--no-verify`) turns verification off. The tag
+  list verifies visible rows after their attachments load (not on Docker Hub),
+  the manifest view verifies the image's or the signature's own signatures,
+  the referrer tree every signature and Sigstore-bundle attestation.
+- Notation and key-based cosign signatures are reported as unverified until
+  they are supported.
 
 ## Testing
 
@@ -138,6 +159,12 @@ install.sh           curl | sh installer for GitHub release binaries
   replaces `copyToClipboard`, so copies can be asserted via `h.copied`.
 - `cmd/beagle` keeps everything except starting the TUI in `setup`, so CLI
   startup (flags, ping, auth errors, Harbor detection) is tested too.
+- Signatures in tests come from `sigtest` (sigstore-go's virtual Sigstore:
+  Fulcio, Rekor, TSA in memory): `SignImage` (cosign v3 bundle), `Attest`,
+  `SignMessage`, `SignLegacy` (.sig payload + annotations). Verify them with
+  `sigverify.New(s.Material())`; a second `sigtest.New()` gives an untrusted
+  instance for invalid signatures. `internal/ui/verify_test.go` pushes signed
+  images to `ocitest` (`signedRegistry`).
 - Coverage: `make cover` / CI summary. It counts cross-package coverage and
   excludes `ocitest` and `hack/`. Keep it at or above ~90 %; new code comes
   with tests.
