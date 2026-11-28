@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/beagle-oci/beagle/internal/oci"
@@ -38,6 +39,8 @@ type manifestView struct {
 	manifest  *oci.Manifest
 	kind      oci.Kind
 	list      *list[entry]
+	// verification is set while or after signatures are verified.
+	verification *verification
 }
 
 type manifestLoadedMsg struct {
@@ -113,6 +116,14 @@ func (v *manifestView) update(e *env, msg tea.Msg) tea.Cmd {
 			return flashErr(msg.err)
 		}
 		v.setManifest(msg.manifest)
+		cmd := v.startVerify(e)
+		v.layout()
+		return cmd
+	case manifestVerifiedMsg:
+		if v.verification != nil {
+			v.verification.state, v.verification.none, v.verification.result = stateDone, msg.none, msg.result
+			v.layout()
+		}
 	case tea.KeyMsg:
 		return v.handleKey(e, msg)
 	}
@@ -208,35 +219,36 @@ func (v *manifestView) summary() string {
 		return ""
 	}
 	m := v.manifest
-	type field struct{ label, value string }
+	type field = summaryField
 	fields := []field{
-		{"Reference", refString(v.repo, v.reference)},
-		{"Digest", m.Descriptor.Digest.String()},
-		{"Media type", m.MediaType},
-		{"Kind", v.kind.String()},
+		{label: "Reference", value: refString(v.repo, v.reference)},
+		{label: "Digest", value: m.Descriptor.Digest.String()},
+		{label: "Media type", value: m.MediaType},
+		{label: "Kind", value: v.kind.String()},
 	}
 	if at := m.EffectiveArtifactType(); at != "" {
-		fields = append(fields, field{"Artifact type", at})
+		fields = append(fields, field{label: "Artifact type", value: at})
 	}
 	size := humanSize(m.Descriptor.Size) + " manifest"
 	if !m.IsIndex() {
 		size += ", " + humanSize(m.ContentSize()) + " content"
 	}
-	fields = append(fields, field{"Size", size})
+	fields = append(fields, field{label: "Size", value: size})
 	if m.Subject != nil {
-		fields = append(fields, field{"Subject", m.Subject.Digest.String() + "  (press s)"})
+		fields = append(fields, field{label: "Subject", value: m.Subject.Digest.String() + "  (press s)"})
 	}
+	fields = append(fields, v.verification.fields()...)
 	annKeys := slices.Sorted(maps.Keys(m.Annotations))
 	for i, k := range annKeys {
 		if i == 4 {
-			fields = append(fields, field{"", fmt.Sprintf("… %d more (press y)", len(annKeys)-4)})
+			fields = append(fields, field{value: fmt.Sprintf("… %d more (press y)", len(annKeys)-4)})
 			break
 		}
 		label := ""
 		if i == 0 {
 			label = "Annotations"
 		}
-		fields = append(fields, field{label, k + "=" + m.Annotations[k]})
+		fields = append(fields, field{label: label, value: k + "=" + m.Annotations[k]})
 	}
 
 	lines := make([]string, 0, len(fields))
@@ -245,7 +257,14 @@ func (v *manifestView) summary() string {
 		if label != "" {
 			label += ":"
 		}
-		line := " " + styleLabel.Render(fmt.Sprintf("%-15s", label)) + styleValue.Render(f.value)
+		style := styleValue
+		if f.style != nil {
+			style = *f.style
+		}
+		line := " " + styleLabel.Render(fmt.Sprintf("%-15s", label)) + style.Render(f.value)
+		if v.width > 0 {
+			line = ansi.Truncate(line, v.width, "…")
+		}
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")

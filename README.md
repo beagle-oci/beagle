@@ -43,6 +43,8 @@ legacy cosign tags.
   CycloneDX), attestations (in-toto, SLSA, buildx), vulnerability reports, VEX, Helm charts
 - Tag list with supply chain columns on every registry: **SIGNED** (cosign, Notation),
   **ATTACHED** (SBOM, attestation, VEX, scan reports) and the build time (**CREATED**)
+- Verifies cosign signatures (keyless, Sigstore bundles and legacy `.sig` tags) with
+  [sigstore-go](https://github.com/sigstore/sigstore-go) and shows who signed and when
 - Push and pull times (**PUSHED**, **PULLED**) where the registry offers them: Harbor and
   Docker Hub; Harbor additionally shows the vulnerability scan summary (**VULNS**)
 - Details are loaded only for the tags you look at, so large repositories stay fast
@@ -77,7 +79,7 @@ installed, the script also verifies the release signature;
 Archives and checksums are also available on the
 [releases page](https://github.com/beagle-oci/beagle/releases).
 
-With Go 1.26 or newer you can also build from source:
+With Go 1.27 or newer you can also build from source:
 
 ```sh
 go install github.com/beagle-oci/beagle/cmd/beagle@latest
@@ -124,6 +126,8 @@ beagle localhost:5050/demo/app:v1.0.0     # open a manifest directly
 | `--https`      | Force HTTPS, even for `localhost`                     |
 | `--insecure`   | Skip TLS certificate verification                     |
 | `--no-harbor`  | Do not use the Harbor API, even on Harbor             |
+| `--no-verify`  | Do not verify cosign signatures                       |
+| `--sigstore-root <file>` | Verify against this `trusted_root.json` instead of the Sigstore public-good instance |
 | `--version`    | Print the version                                     |
 
 Many registries (Docker Hub, GHCR, …) do not expose the catalog API. In that
@@ -139,9 +143,37 @@ case start beagle with a repository or use `:repo <name>`.
 | `PUSHED`, `PULLED` | Vendor API                                            | Harbor, Docker Hub |
 | `VULNS`    | Harbor scan overview, e.g. `C1 H3` (critical/high/...)        | Harbor     |
 
-`SIGNED` means a signature is attached; it is not verified yet.
 Times are shown in local time, to the second (`2026-11-27 14:02:31`). Press
 `t` or use `:time age` to show ages (`5m`, `3d`) instead.
+
+### Signature verification
+
+beagle verifies cosign signatures the way `cosign verify` does for keyless
+signing: the Fulcio certificate chain, the certificate transparency proof, the
+transparency log entry (or a timestamp authority) and the signature over the
+image digest. It handles Sigstore bundles as written by cosign v3 (OCI 1.1
+referrers, or the tag fallback) and the older `sha256-<hex>.sig` tags.
+
+| `SIGNED` | Meaning |
+| -------- | ------- |
+| `✓ cosign` | At least one signature is valid |
+| `✗ cosign` | Signatures are attached, but none is valid |
+| `? notation` | Attached, but cannot be verified: Notation (not supported yet), signed with a key, or the trusted root or registry was unavailable |
+| `… cosign` | Being verified |
+| `• cosign` | Attached, not verified (`--no-verify`, or on Docker Hub until you open the manifest) |
+
+A valid signature proves that the holder of an identity signed the image, not
+that you should trust that identity. The manifest view of an image shows who
+signed it (email or CI workflow, OIDC issuer, source repository and commit)
+and when it was logged; the referrer tree has a `VERIFIED` column for every
+signature and signed attestation.
+
+The trust root of the Sigstore public-good instance is fetched via TUF on
+first use and cached in `~/.sigstore/root`, shared with cosign. For a private
+Sigstore instance or offline use pass its `trusted_root.json` with
+`--sigstore-root`. On Docker Hub the tag list does not verify on its own,
+because fetching signature manifests counts against the pull rate limit;
+opening a manifest verifies its signatures.
 
 ### Harbor
 
@@ -190,11 +222,19 @@ users, so the header may show "version hidden".
 ```sh
 make registry      # terminal 1: in-memory registry with referrers API on :5050
 make seed          # terminal 2: push demo images, signatures, SBOMs, charts
-make run           # start beagle against localhost:5050
+make run-demo      # open demo/app on localhost:5050, trusting the demo signatures
+make run           # start beagle against localhost:5050 (public-good trust root)
 
 make registry-noreferrers                 # registry without referrers API on :5051
 make seed REGISTRY=localhost:5051
 ```
+
+The dev registry (olareg) has no catalog API, so `make run` opens on a hint
+screen: use `:repo demo/app` (or `demo/chart`, `demo/docs`) to get going.
+
+The demo signatures come from a virtual Sigstore instance; `make seed` writes
+its trust root to `bin/demo-trusted-root.json`. `v0.9.0` carries a signature
+from another instance and shows up as invalid.
 
 The dev registries use ports 5050/5051 because macOS' AirPlay Receiver
 occupies port 5000 and answers every request with `403 Forbidden`.
@@ -207,15 +247,22 @@ See [CLAUDE.md](CLAUDE.md) for architecture notes and conventions.
 
 ## Roadmap
 
-- Registry contexts like kubeconfig (`:ctx`), config file with skins and aliases
-- Signature verification (cosign, Notation) directly from the referrer tree and tag list
-- More vendor metadata providers (GHCR, ECR, ACR, Quay, GitLab)
-- SBOM viewer (packages, licenses) and vulnerability report summary
-- Provider adapters for listing repositories where `_catalog` is unavailable
-  (GHCR, ECR, ACR)
-- Harbor extras: show Harbor's own accessories and scan overview, labels
-- Delete / copy / tag operations behind a read-write mode
-- Layer file browser
+1. Signature verification: cosign keyless is done; next are key-based cosign
+   signatures (`--key`), Notation (trust policy and store) and identity
+   policies (trusted signers per repository)
+2. SBOM viewer (packages, licenses), attestation viewer (SLSA provenance) and a
+   vulnerability report summary
+3. Config file with registry contexts like kubeconfig (`:ctx`), per-registry
+   settings, skins and aliases
+4. Compare two tags (layers, config, platforms, signatures)
+5. Helm chart view (`Chart.yaml`, `values.yaml`, dependencies)
+6. Copy ready-to-use commands (`docker pull`, `helm pull oci://…`,
+   `cosign verify`, `oras discover`)
+7. Repository listing where `_catalog` is unavailable and more metadata
+   providers (GHCR, ECR, ACR, Quay, GitLab), Harbor labels
+8. Layer file browser
+9. Script mode without the TUI, e.g. `beagle ls <repo> -o json`
+10. Delete / copy / tag operations behind an explicit read-write mode
 
 ## License
 

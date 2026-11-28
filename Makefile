@@ -2,10 +2,11 @@ BINARY  := beagle
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-REGISTRY ?= localhost:5050
+REGISTRY  ?= localhost:5050
+DEMO_REPO ?= demo/app
 OLAREG   := github.com/olareg/olareg/cmd/olareg@v0.2.2
 
-.PHONY: all build install run test test-race cover cover-html lint golangci fmt tidy registry registry-noreferrers seed clean
+.PHONY: all build install run run-demo test test-race cover cover-html lint golangci fmt tidy registry registry-noreferrers seed clean
 
 all: lint test build
 
@@ -17,6 +18,9 @@ install: ## Install beagle into GOBIN
 
 run: build ## Run beagle against $(REGISTRY)
 	./bin/$(BINARY) $(REGISTRY)
+
+run-demo: build ## Open $(DEMO_REPO) on $(REGISTRY), trusting the signatures from `make seed`
+	./bin/$(BINARY) --sigstore-root bin/demo-trusted-root.json $(REGISTRY)/$(DEMO_REPO)
 
 test: ## Run unit tests
 	go test ./...
@@ -34,7 +38,7 @@ lint: ## go vet + gofmt check
 	go vet ./...
 	@test -z "$$(gofmt -l .)" || (echo "gofmt needed:" && gofmt -l . && exit 1)
 
-golangci: ## Run golangci-lint (must be built with Go >= 1.26)
+golangci: ## Run golangci-lint (must be built with Go >= 1.27)
 	golangci-lint run
 
 fmt: ## Format all Go files

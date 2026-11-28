@@ -61,11 +61,16 @@ func Seed(r *Registry) Fixture {
 	f.Index = r.PushManifest(repo, "v1.0.0", ocispec.MediaTypeImageIndex, idx)
 	r.Tag(repo, "latest", f.Index.Digest)
 
+	// cosign v3 signs images with a DSSE envelope and the cosign/sign predicate.
+	signature := map[string]string{
+		"dev.sigstore.bundle.content":       "dsse-envelope",
+		"dev.sigstore.bundle.predicateType": "https://sigstore.dev/cosign/sign/v1",
+	}
 	f.Signature = PushArtifact(r, repo, f.Index, "application/vnd.dev.sigstore.bundle.v0.3+json",
-		map[string]string{"dev.sigstore.bundle.content": "message-signature"}, "application/vnd.dev.sigstore.bundle.v0.3+json", `{"mediaType":"bundle"}`)
+		signature, "application/vnd.dev.sigstore.bundle.v0.3+json", `{"mediaType":"bundle"}`)
 	f.SBOM = PushArtifact(r, repo, f.Index, "application/spdx+json", nil, "application/spdx+json", `{"spdxVersion":"SPDX-2.3"}`)
 	f.SBOMSig = PushArtifact(r, repo, f.SBOM, "application/vnd.dev.sigstore.bundle.v0.3+json",
-		map[string]string{"dev.sigstore.bundle.content": "message-signature"}, "application/vnd.dev.sigstore.bundle.v0.3+json", `{"mediaType":"bundle"}`)
+		signature, "application/vnd.dev.sigstore.bundle.v0.3+json", `{"mediaType":"bundle"}`)
 	f.Provenance = PushArtifact(r, repo, f.Index, "application/vnd.dev.sigstore.bundle.v0.3+json",
 		map[string]string{
 			"dev.sigstore.bundle.content":       "dsse-envelope",

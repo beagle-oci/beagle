@@ -12,6 +12,7 @@ import (
 
 	"github.com/beagle-oci/beagle/internal/oci"
 	"github.com/beagle-oci/beagle/internal/oci/ocitest"
+	"github.com/beagle-oci/beagle/internal/sigverify/sigtest"
 	"github.com/beagle-oci/beagle/internal/ui"
 )
 
@@ -171,5 +172,49 @@ func TestSetupWithCredentials(t *testing.T) {
 	}
 	if opts.Client.AuthSource() != "docker credentials" {
 		t.Fatalf("auth source = %q", opts.Client.AuthSource())
+	}
+}
+
+func TestSetupVerification(t *testing.T) {
+	isolate(t)
+	r := ocitest.New()
+	ocitest.Seed(r)
+	host := r.Start(t)
+
+	opts, _, _, err := runSetup(t, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.Verifier == nil || opts.Verifier.Source() != "Sigstore public good" {
+		t.Fatalf("default verifier = %+v", opts.Verifier)
+	}
+
+	opts, _, _, err = runSetup(t, "--no-verify", host)
+	if err != nil || opts.Verifier != nil {
+		t.Fatalf("--no-verify: err=%v verifier=%v", err, opts.Verifier)
+	}
+
+	s, err := sigtest.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootJSON, err := s.TrustedRootJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "trusted_root.json")
+	if err := os.WriteFile(path, rootJSON, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opts, _, _, err = runSetup(t, "--sigstore-root", path, host)
+	if err != nil || opts.Verifier == nil || opts.Verifier.Source() != "trusted_root.json" {
+		t.Fatalf("--sigstore-root: err=%v verifier=%v", err, opts.Verifier)
+	}
+
+	if _, _, _, err := runSetup(t, "--sigstore-root", filepath.Join(t.TempDir(), "missing.json"), host); err == nil {
+		t.Fatal("a missing trusted root should fail")
+	}
+	if _, _, _, err := runSetup(t, "--no-verify", "--sigstore-root", path, host); err == nil || !strings.Contains(err.Error(), "exclude each other") {
+		t.Fatalf("conflicting flags: %v", err)
 	}
 }

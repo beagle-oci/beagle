@@ -18,6 +18,7 @@ import (
 	"github.com/beagle-oci/beagle/internal/harbor"
 	"github.com/beagle-oci/beagle/internal/meta"
 	"github.com/beagle-oci/beagle/internal/oci"
+	"github.com/beagle-oci/beagle/internal/sigverify"
 )
 
 // Options configure the app.
@@ -27,6 +28,8 @@ type Options struct {
 	Harbor *harbor.Client
 	// Metadata provides vendor tag metadata such as push/pull times. Optional.
 	Metadata meta.Provider
+	// Verifier verifies cosign signatures. Optional; nil disables verification.
+	Verifier *sigverify.Verifier
 	Version  string
 	// Repository and Reference optionally select where beagle starts.
 	Repository string
@@ -75,7 +78,7 @@ func New(opts Options) *App {
 	in.PromptStyle = stylePrompt
 	in.CompletionStyle = styleMuted
 	return &App{
-		env:     &env{ctx: ctx, client: opts.Client, harbor: opts.Harbor, meta: opts.Metadata},
+		env:     &env{ctx: ctx, client: opts.Client, harbor: opts.Harbor, meta: opts.Metadata, verifier: opts.Verifier},
 		cancel:  cancel,
 		opts:    opts,
 		input:   in,
@@ -471,7 +474,11 @@ func (a *App) renderHeader(top view) string {
 		}
 		info = append(info, [2]string{"Harbor", version})
 	}
-	info = append(info, [2]string{"beagle", a.opts.Version})
+	signatures := "not verified (--no-verify)"
+	if v := a.env.verifier; v != nil {
+		signatures = "verified via " + v.Source()
+	}
+	info = append(info, [2]string{"Signatures", signatures}, [2]string{"beagle", a.opts.Version})
 	hints := append(top.hints(), hintOf(keys.Command))
 	if _, ok := top.(filterable); ok {
 		hints = append(hints, hintOf(keys.Filter))

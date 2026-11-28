@@ -40,6 +40,11 @@ const (
 	AnnotationSigstoreContent       = "dev.sigstore.bundle.content"
 )
 
+// PredicateCosignSign is the in-toto predicate type cosign (v2 with
+// --new-bundle-format, v3 by default) uses for plain image signatures: a DSSE
+// envelope whose statement names the image digest as its subject.
+const PredicateCosignSign = "https://sigstore.dev/cosign/sign/v1"
+
 func (k Kind) String() string {
 	switch k {
 	case KindIndex:
@@ -157,9 +162,14 @@ func classifyType(t string, ann map[string]string) Kind {
 	}
 	switch {
 	case strings.HasPrefix(t, "application/vnd.dev.sigstore.bundle"):
-		// cosign v3 stores signatures and attestations as sigstore bundles;
-		// only attestations carry a predicate type / DSSE envelope.
-		if ann[AnnotationSigstorePredicateType] != "" || ann[AnnotationSigstoreContent] == "dsse-envelope" {
+		// cosign stores signatures and attestations as sigstore bundles. Image
+		// signatures are DSSE envelopes with the cosign/sign predicate (or, in
+		// older bundles, message signatures); other predicates are attestations.
+		pt := ann[AnnotationSigstorePredicateType]
+		switch {
+		case pt == PredicateCosignSign:
+			return KindSignature
+		case pt != "" || ann[AnnotationSigstoreContent] == "dsse-envelope":
 			return KindAttestation
 		}
 		return KindSignature

@@ -3,6 +3,11 @@
 // attestations, scan results, cosign legacy tags, Helm charts and a generic
 // artifact.
 //
+// The signatures are real, made by a virtual Sigstore instance. Its trusted
+// root is written to bin/demo-trusted-root.json; pass it to beagle with
+// --sigstore-root (make run-demo) to see them verified. v0.9.0 carries a
+// signature from another instance, which shows up as invalid.
+//
 // Usage:
 //
 //	go run ./hack/seed localhost:5050
@@ -19,6 +24,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,11 +34,14 @@ import (
 	"oras.land/oras-go/v2/registry/remote/auth"
 	"oras.land/oras-go/v2/registry/remote/credentials"
 	"oras.land/oras-go/v2/registry/remote/retry"
+
+	"github.com/beagle-oci/beagle/internal/sigverify/sigtest"
 )
 
 func main() {
 	plainHTTP := flag.Bool("plain-http", true, "use HTTP instead of HTTPS")
 	prefix := flag.String("prefix", "demo", "repository namespace")
+	trustedRoot := flag.String("trusted-root", "bin/demo-trusted-root.json", "where to write the trusted root of the demo signatures")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: seed [flags] <registry>")
 		flag.PrintDefaults()
@@ -42,17 +51,57 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	s := &seeder{host: flag.Arg(0), plainHTTP: *plainHTTP, prefix: *prefix}
+	sigstore, err := sigtest.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	s := &seeder{host: flag.Arg(0), plainHTTP: *plainHTTP, prefix: *prefix, sigstore: sigstore}
 	if err := s.run(context.Background()); err != nil {
 		log.Fatal(err)
 	}
+	if err := writeTrustedRoot(sigstore, *trustedRoot); err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("wrote the demo trusted root to %s, try: make run-demo", *trustedRoot)
 }
+
+// Identities of the demo signatures.
+const (
+	demoSigner             = "release@beagle.example"
+	demoIssuer             = "https://accounts.beagle.example"
+	demoWorkflow           = "https://github.com/beagle-oci/demo/.github/workflows/release.yml@refs/tags/v1.0.0"
+	githubIssuer           = "https://token.actions.githubusercontent.com"
+	bundleType             = "application/vnd.dev.sigstore.bundle.v0.3+json"
+	predicateCosignSign    = "https://sigstore.dev/cosign/sign/v1"
+	predicateSLSA          = "https://slsa.dev/provenance/v1"
+	mediaTypeSimpleSigning = "application/vnd.dev.cosign.simplesigning.v1+json"
+)
 
 type seeder struct {
 	host      string
 	plainHTTP bool
 	prefix    string
 	client    *auth.Client
+	sigstore  *sigtest.Sigstore
+}
+
+func writeTrustedRoot(s *sigtest.Sigstore, path string) error {
+	data, err := s.TrustedRootJSON()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// bundleAnnotations are the manifest annotations cosign v3 sets on a bundle.
+func bundleAnnotations(predicateType string) map[string]string {
+	return map[string]string{
+		"dev.sigstore.bundle.content":       "dsse-envelope",
+		"dev.sigstore.bundle.predicateType": predicateType,
+	}
 }
 
 func (s *seeder) repo(name string) (*remote.Repository, error) {
@@ -106,9 +155,11 @@ func (s *seeder) run(ctx context.Context) error {
 	}
 	log.Printf("pushed %s/%s/app:v1.0.0 (%s)", s.host, s.prefix, index.Digest)
 
-	bundle := "application/vnd.dev.sigstore.bundle.v0.3+json"
-	sig, err := attach(ctx, app, index, bundle, map[string]string{"dev.sigstore.bundle.content": "message-signature"},
-		bundle, `{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json","messageSignature":{"signature":"MEUCIQ..."}}`)
+	sigBundle, err := s.sigstore.SignImage(index.Digest, demoSigner, demoIssuer)
+	if err != nil {
+		return err
+	}
+	sig, err := attach(ctx, app, index, bundleType, bundleAnnotations(predicateCosignSign), bundleType, string(sigBundle))
 	if err != nil {
 		return err
 	}
@@ -116,14 +167,30 @@ func (s *seeder) run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if _, err := attach(ctx, app, sbom, bundle, map[string]string{"dev.sigstore.bundle.content": "message-signature"},
-		bundle, `{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json","messageSignature":{"signature":"MEYCIQ..."}}`); err != nil {
+	sbomBundle, err := s.sigstore.SignImage(sbom.Digest, demoSigner, demoIssuer)
+	if err != nil {
 		return err
 	}
-	if _, err := attach(ctx, app, index, bundle, map[string]string{
-		"dev.sigstore.bundle.content":       "dsse-envelope",
-		"dev.sigstore.bundle.predicateType": "https://slsa.dev/provenance/v1",
-	}, bundle, `{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json","dsseEnvelope":{"payloadType":"application/vnd.in-toto+json"}}`); err != nil {
+	if _, err := attach(ctx, app, sbom, bundleType, bundleAnnotations(predicateCosignSign), bundleType, string(sbomBundle)); err != nil {
+		return err
+	}
+	provenance, err := s.sigstore.Attest(index.Digest, predicateSLSA, demoWorkflow, githubIssuer)
+	if err != nil {
+		return err
+	}
+	if _, err := attach(ctx, app, index, bundleType, bundleAnnotations(predicateSLSA), bundleType, string(provenance)); err != nil {
+		return err
+	}
+	// A signature from a Sigstore instance nobody trusts: invalid.
+	forger, err := sigtest.New()
+	if err != nil {
+		return err
+	}
+	forged, err := forger.SignImage(old.Digest, "mallory@evil.example", demoIssuer)
+	if err != nil {
+		return err
+	}
+	if _, err := attach(ctx, app, old, bundleType, bundleAnnotations(predicateCosignSign), bundleType, string(forged)); err != nil {
 		return err
 	}
 	if _, err := attach(ctx, app, index, "application/vnd.openvex+json", nil, "application/vnd.openvex+json",
@@ -142,12 +209,15 @@ func (s *seeder) run(ctx context.Context) error {
 
 	// cosign < v3 stored signatures and attestations under digest tags.
 	digestTag := strings.Replace(index.Digest.String(), ":", "-", 1)
-	if err := pushLegacyCosign(ctx, app, digestTag+".sig", "application/vnd.dev.cosign.simplesigning.v1+json",
-		fmt.Sprintf(`{"critical":{"identity":{"docker-reference":"%s/%s/app"},"image":{"docker-manifest-digest":"%s"},"type":"cosign container image signature"}}`, s.host, s.prefix, index.Digest)); err != nil {
+	payload, annotations, err := s.sigstore.SignLegacy(index.Digest, demoSigner, demoIssuer)
+	if err != nil {
+		return err
+	}
+	if err := pushLegacyCosign(ctx, app, digestTag+".sig", mediaTypeSimpleSigning, string(payload), annotations); err != nil {
 		return err
 	}
 	if err := pushLegacyCosign(ctx, app, digestTag+".att", "application/vnd.dsse.envelope.v1+json",
-		`{"payloadType":"application/vnd.in-toto+json","payload":"e30=","signatures":[]}`); err != nil {
+		`{"payloadType":"application/vnd.in-toto+json","payload":"e30=","signatures":[]}`, nil); err != nil {
 		return err
 	}
 	log.Printf("pushed cosign legacy tags %s.sig and .att", digestTag)
@@ -268,11 +338,12 @@ func attach(ctx context.Context, r *remote.Repository, subject ocispec.Descripto
 	})
 }
 
-func pushLegacyCosign(ctx context.Context, r *remote.Repository, tag, layerType, payload string) error {
+func pushLegacyCosign(ctx context.Context, r *remote.Repository, tag, layerType, payload string, annotations map[string]string) error {
 	layer, err := pushBlob(ctx, r, layerType, []byte(payload), "")
 	if err != nil {
 		return err
 	}
+	layer.Annotations = annotations
 	config, err := pushBlob(ctx, r, ocispec.MediaTypeImageConfig, []byte(`{"architecture":"","os":"","rootfs":{"type":"layers","diff_ids":[]}}`), "")
 	if err != nil {
 		return err

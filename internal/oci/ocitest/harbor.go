@@ -226,13 +226,19 @@ func (r *Registry) serveHarborArtifacts(w http.ResponseWriter, req *http.Request
 	writePage(w, req, items)
 }
 
+// isCosignSignature tells signature bundles (cosign v3 predicate or none)
+// from attestations.
+func isCosignSignature(predicateType string) bool {
+	return predicateType == "" || predicateType == "https://sigstore.dev/cosign/sign/v1"
+}
+
 // accessoryType mimics Harbor's accessory types for referrers.
 func accessoryType(d ocispec.Descriptor) string {
 	t := strings.ToLower(d.ArtifactType)
 	switch {
 	case strings.Contains(t, "notary.signature"):
 		return "signature.notation"
-	case strings.Contains(t, "sigstore.bundle") && d.Annotations["dev.sigstore.bundle.predicateType"] == "",
+	case strings.Contains(t, "sigstore.bundle") && isCosignSignature(d.Annotations["dev.sigstore.bundle.predicateType"]),
 		strings.Contains(t, "cosign.artifact.sig"):
 		return "signature.cosign"
 	case strings.Contains(t, "spdx"), strings.Contains(t, "cyclonedx"):

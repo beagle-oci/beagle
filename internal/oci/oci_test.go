@@ -259,6 +259,13 @@ func TestClassifyDescriptor(t *testing.T) {
 	}{
 		{"notation", ocispec.Descriptor{ArtifactType: "application/vnd.cncf.notary.signature"}, oci.KindSignature},
 		{"cosign bundle signature", ocispec.Descriptor{ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json"}, oci.KindSignature},
+		{"cosign v3 image signature", ocispec.Descriptor{
+			ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+			Annotations: map[string]string{
+				oci.AnnotationSigstoreContent:       "dsse-envelope",
+				oci.AnnotationSigstorePredicateType: oci.PredicateCosignSign,
+			},
+		}, oci.KindSignature},
 		{"cosign bundle attestation", ocispec.Descriptor{
 			ArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
 			Annotations:  map[string]string{oci.AnnotationSigstorePredicateType: "https://slsa.dev/provenance/v1"},
